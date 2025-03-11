@@ -3,6 +3,7 @@ import { Routes, Route } from "react-router-dom";
 import HomePage from "./pages/HomePage";
 import RegisterPage from "./pages/RegisterPage";
 import Dashboard from "./pages/DashboardPage";
+import Calendar from "./components/Calendar";
 
 function App() {
   const [count, setCount] = useState(0)
@@ -14,6 +15,7 @@ function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path ="/calendar" element={<Calendar />} />
       </Routes>
     </div>
     </>

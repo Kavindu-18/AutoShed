@@ -2,6 +2,9 @@ import { useState } from "react";
 import { Layout, Menu } from "antd";
 import { UserOutlined, DashboardOutlined } from "@ant-design/icons";
 import Sidebar from "../components/Sidebar";
+import Calendar from "../components/Calendar";
+
+
 
 const { Header, Content } = Layout;
 
@@ -16,6 +19,8 @@ function Dashboard() {
       <Layout>
         {/* Header */}
         <Header className="bg-white shadow-md px-6 text-xl font-semibold">Dashboard</Header>
+
+        {/* <Calendar/> */}
 
         {/* Content */}
         <Content className="p-6">

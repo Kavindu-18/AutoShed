@@ -46,3 +46,12 @@ export const reschedulePresentation = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+export const getPresentations = async (req, res) => {
+  try {
+    const presentations = await Presentation.find();
+    res.json(presentations);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
