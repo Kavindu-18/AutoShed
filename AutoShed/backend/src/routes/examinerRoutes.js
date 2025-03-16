@@ -1,9 +1,8 @@
 import express from "express";
-import { addExaminer, getAvailableExaminers } from "../controllers/examinerController.js";
+import{addExaminer} from "../controllers/examinerController.js";
 
-const router = express.Router();
+const examinersrouter = express.Router();
 
-router.post("/", addExaminer); // Add an examiner
-router.get("/available", getAvailableExaminers); // Get available examiners
+examinersrouter.post("/", addExaminer);
 
-export default router;
+export default examinersrouter;
