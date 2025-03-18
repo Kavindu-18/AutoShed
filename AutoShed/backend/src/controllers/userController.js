@@ -9,7 +9,7 @@ export function registerUser(req,res){
     
     const Data = req.body;
 
-    Data.Password = bcrypt.hashSync(Data.Password,10);
+    Data.password = bcrypt.hashSync(Data.password,10);
     const newUser = new User(Data);
 
     newUser.save().then(()=>{
@@ -24,7 +24,7 @@ export function Loginuser(req,res){
     const Data = req.body;
 
     User.findOne({
-        Email : Data.Email 
+        email : Data.email 
     }).then(
         (user)=>{
             if(user==null){
@@ -32,14 +32,14 @@ export function Loginuser(req,res){
             }else{
                 
 
-                const ispasswordCorrect =bcrypt.compareSync(Data.Password,user.Password);
+                const ispasswordCorrect =bcrypt.compareSync(Data.password,user.password);
 
                 if(ispasswordCorrect){
 
                     const token =jwt.sign({
-                        Firstname       : user.FirstName,
-                        Email           : user.Email,
-                        Role            : user.Role
+                        firstname       : user.firstname,
+                        email           : user.email,
+                        role            : user.role
                     },process.env.JWT_SECRET);
 
                     res.json({Message:"Login successful",token:token,user:user});
@@ -55,7 +55,7 @@ export  function isitAdmin(req,res){
     
     let isadmin = false;
 
-    if(req.user != null && req.user.Role == "admin") {
+    if(req.user != null && req.user.role == "admin") {
         isadmin = true;
     }
     return isadmin;
@@ -65,7 +65,7 @@ export  function isitStudent(req){
     
     let isitStudent = false;
 
-    if(req.user != null && req.user.Role == "student") {
+    if(req.user != null && req.user.role == "student") {
         isitStudent = true;
     }
     return isitStudent;

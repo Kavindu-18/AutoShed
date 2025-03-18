@@ -32,13 +32,13 @@ function RegisterPage() {
           />
           <input
             type="email"
-            placeholder="Email"
+            placeholder="email"
             className="w-full p-3 border border-gray-300 rounded-lg"
             onChange={(e) => setUser({ ...user, email: e.target.value })}
           />
           <input
             type="password"
-            placeholder="Password"
+            placeholder="password"
             className="w-full p-3 border border-gray-300 rounded-lg"
             onChange={(e) => setUser({ ...user, password: e.target.value })}
           />
