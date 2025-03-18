@@ -1,5 +1,5 @@
 import { Layout, Menu } from "antd";
-import { UserOutlined, DashboardOutlined,CalendarOutlined  } from "@ant-design/icons";
+import { UserOutlined, DashboardOutlined,CalendarOutlined ,SolutionOutlined } from "@ant-design/icons";
 import { Link } from "react-router-dom";
 
 const { Sider } = Layout;
@@ -14,6 +14,9 @@ function Sidebar() {
         </Menu.Item>
         <Menu.Item key="calendar" icon={<CalendarOutlined />}>
           <Link to="/calendar">Examiner Calendar</Link>
+        </Menu.Item>
+        <Menu.Item key="examiner" icon={<SolutionOutlined />}> 
+          <Link to="/examiner">Examiner Management</Link>
         </Menu.Item>
       </Menu>
     </Sider>
