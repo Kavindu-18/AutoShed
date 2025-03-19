@@ -9,6 +9,7 @@ import http from "http";
 import userRoutes from "./routes/userRoutes.js";
 import examinerRoutes from "./routes/examinerRoutes.js";
 import presentationRoutes from "./routes/presentationRoutes.js";
+import noticeRoutes from "./routes/noticeRoutes.js";
 
 dotenv.config();
 const app = express();
@@ -32,6 +33,7 @@ connectDB();
 app.use("/api/users", userRoutes);
 app.use("/api/examiners", examinerRoutes);
 app.use("/api/presentations", presentationRoutes);
+app.use("/api/notices", noticeRoutes);
 
 const PORT = process.env.PORT || 5001;
 httpServer.listen(PORT, () => console.log(`Server running on port ${PORT}`));
