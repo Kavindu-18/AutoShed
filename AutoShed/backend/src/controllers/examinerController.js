@@ -22,6 +22,21 @@ export async function getExaminers(req, res) {
   }
 }
 
+export async function getExaminerById(req, res) {
+  try {
+    const { id } = req.params;
+    const examiner = await Examiner.findOne({ id: id }); // Find by the 'id' field
+
+    if (!examiner) {
+      return res.status(404).json({ message: 'Examiner not found' });
+    }
+
+    res.json(examiner);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
+
 
 export async function DeleteExaminer(req, res) {
   try {

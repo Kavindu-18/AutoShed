@@ -6,6 +6,9 @@ import Dashboard from "./pages/DashboardPage";
 import Calendar from "./components/Calendar";
 import Examiner from "./pages/ExaminerDashboard";
 import AddExaminer from "./components/Examiner/addexaminer";
+import ViewExaminers from "./components/Examiner/viewexaminers";
+import ExaminerProfile from "./components/Examiner/ExaminerProfile";
+import UpdateExaminer from "./components/Examiner/updateexaminer";
 
 
 
@@ -23,6 +26,10 @@ function App() {
         <Route path ="/calendar" element={<Calendar />} />
         <Route path ="/Examiner" element={<Examiner />} />
         <Route path ="/addexaminer" element={<AddExaminer />} />
+        <Route path ="/viewexaminers" element={<ViewExaminers />} />
+        <Route path="/examiners/view/:id" element={<ExaminerProfile />} />
+        <Route path="/examiners/edit/:id" element={<UpdateExaminer />} />
+        
     
       </Routes>
     </div>
