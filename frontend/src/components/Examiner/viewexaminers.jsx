@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Eye, Edit, Trash2 } from "lucide-react";
+import { Eye, Edit, Trash2, Plus } from "lucide-react";
 import Sidebar from "../Sidebar";
 import { useNavigate } from "react-router-dom";
 
@@ -78,8 +78,8 @@ export default function ViewExaminers() {
         <div className="p-6 w-full">
           <h1 className="text-3xl font-bold text-gray-800 mb-6">Examiner List</h1>
 
-          {/* Search & Filters */}
-          <div className="flex gap-4 mb-4">
+          {/* Search, Filters, Add Examiner & Generate Report Buttons */}
+          <div className="flex flex-wrap gap-4 mb-4 items-center">
             <input
               type="text"
               placeholder="Search examiners..."
@@ -115,6 +115,23 @@ export default function ViewExaminers() {
                 </option>
               ))}
             </select>
+
+            {/* Add New Examiner Button */}
+            <button
+              onClick={() => navigate("/addexaminer")}
+              className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg flex items-center gap-2 shadow"
+            >
+              <Plus size={20} />
+              Add Examiner
+            </button>
+
+            {/* Generate Report Button */}
+            <button
+              onClick={() => navigate("/generate-report")}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow"
+            >
+              Generate Report
+            </button>
           </div>
 
           {/* Examiner Table */}
@@ -149,27 +166,13 @@ export default function ViewExaminers() {
 
                         {/* Action Buttons */}
                         <td className="px-6 py-4 flex gap-3">
-                          {/* View Button */}
-                          <button
-                            onClick={() => navigate(`/examiners/view/${examiner.id}`)}
-                            className="text-purple-600 hover:text-purple-800"
-                          >
+                          <button onClick={() => navigate(`/examiners/view/${examiner.id}`)} className="text-purple-600 hover:text-purple-800">
                             <Eye size={20} />
                           </button>
-
-                          {/* Edit Button */}
-                          <button
-                            onClick={() => navigate(`/examiners/edit/${examiner.id}`)}
-                            className="text-purple-600 hover:text-purple-800"
-                          >
+                          <button onClick={() => navigate(`/examiners/edit/${examiner.id}`)} className="text-purple-600 hover:text-purple-800">
                             <Edit size={20} />
                           </button>
-
-                          {/* Delete Button */}
-                          <button
-                            onClick={() => handleDelete(examiner.id)}
-                            className="text-red-600 hover:text-red-800"
-                          >
+                          <button onClick={() => handleDelete(examiner.id)} className="text-red-600 hover:text-red-800">
                             <Trash2 size={20} />
                           </button>
                         </td>

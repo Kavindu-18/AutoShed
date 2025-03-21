@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom'; // For redirection after login
+import ExaminerLogo from '../../public/Img/Examiner.png'; // Adjust the path as needed
 
-const LoginPage = () => {
+export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -37,8 +38,11 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex justify-center items-center bg-gray-100">
+    <div className="min-h-screen flex justify-center items-center bg-gradient-to-br from-blue-400 to-purple-600">
       <form onSubmit={handleSubmit} className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
+        <div className="flex justify-center mb-6">
+          <img src={ExaminerLogo} alt="Examiner Logo" className="h-16" />
+        </div>
         <h2 className="text-2xl font-semibold text-center mb-6">Login</h2>
 
         <div className="mb-4">
@@ -67,13 +71,24 @@ const LoginPage = () => {
 
         <button
           type="submit"
-          className="w-full p-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full p-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all duration-300"
         >
           Login
         </button>
+
+        {/* Sign Up Link */}
+        <div className="mt-4 text-center">
+          <p className="text-gray-600">
+            Not a member?{' '}
+            <span
+              onClick={() => navigate('/Support')}
+              className="text-blue-500 hover:underline cursor-pointer"
+            >
+              Support
+            </span>
+          </p>
+        </div>
       </form>
     </div>
   );
-};
-
-export default LoginPage;
+}
