@@ -56,3 +56,12 @@ export const deleteNotice = async (noticeId) => {
     return { error: error.response?.data || error.message };
   }
 };
+
+// Export NoticeMng object to maintain compatibility with the component
+export const NoticeMng = {
+  getNotices,
+  createNotice,
+  updateNotice,
+  deleteNotice,
+  getNoticeById
+};
