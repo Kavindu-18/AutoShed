@@ -1,11 +1,14 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Toaster, toast } from "react-hot-toast";
+import { UserPlus, Mail, Phone, Building2, BookOpen, GraduationCap, ChevronRight } from "lucide-react";
 import Sidebar from "../Sidebar";
+import Select from "react-select";
 
 export default function AddExaminer() {
-  const [step, setStep] = useState(1);
   const navigate = useNavigate();
-  
+  const [currentStep, setCurrentStep] = useState(1);
+
   const [formData, setFormData] = useState({
     id: "",
     email: "",
@@ -16,161 +19,356 @@ export default function AddExaminer() {
     department: "",
     courses: [],
     modules: [],
-    availability: "true",
-    salary: "0",
   });
 
-  const [newCourse, setNewCourse] = useState("");
-  const [newModule, setNewModule] = useState("");
-  const [errors, setErrors] = useState({});
+  const examinerPositions = [
+    "Internal Examiner", "External Examiner", "Chief Examiner",
+    "Practical Examiner", "Dissertation Examiner",
+    "Continuous Assessment Examiner", "Online Examiner",
+  ];
 
-  const validateStep1 = () => {
+  const departments = [
+    "Department of Computer Science", "Department of Information Systems",
+    "Department of Cybersecurity", "Department of Artificial Intelligence",
+    "Department of Data Science", "Department of Business Administration",
+    "Department of Civil Engineering", "Department of Mechanical Engineering",
+    "Department of Electrical Engineering", "Department of Computer Engineering",
+  ];
+
+  const courseModules = {
+    "BSc in Computer Science": [
+      "CS101 Algorithms",
+      "CS102 Operating Systems",
+      "CS103 Software Engineering",
+    ],
+    "BSc in Software Engineering": [
+      "SE101 Data Structures",
+      "SE102 Database Management",
+      "SE103 Software Testing",
+    ],
+    "BSc in Artificial Intelligence": [
+      "AI101 Machine Learning",
+      "AI102 Neural Networks",
+      "AI103 Natural Language Processing",
+    ],
+  };
+
+  const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
+
+  const validateStep = (step) => {
     let newErrors = {};
-    ["id", "email", "fname", "lname", "position", "phone"].forEach((field) => {
-      if (!formData[field].trim()) newErrors[field] = "This field is required";
-    });
+    
+    if (step === 1) {
+      ["id", "email", "fname", "lname"].forEach((field) => {
+        if (!formData[field].trim()) newErrors[field] = "Required";
+      });
+      if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+        newErrors.email = "Invalid email format";
+      }
+    } else if (step === 2) {
+      ["position", "phone", "department"].forEach((field) => {
+        if (!formData[field].trim()) newErrors[field] = "Required";
+      });
+      if (formData.phone && !/^\+?[\d\s-]{10,}$/.test(formData.phone)) {
+        newErrors.phone = "Invalid phone number";
+      }
+    } else if (step === 3) {
+      if (formData.courses.length === 0) newErrors.courses = "Select at least one course";
+      if (formData.modules.length === 0) newErrors.modules = "Select at least one module";
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const validateStep2 = () => {
-    let newErrors = {};
-    if (!formData.department.trim()) newErrors.department = "Department is required";
-    if (formData.courses.length === 0) newErrors.courses = "At least one course is required";
-    if (formData.modules.length === 0) newErrors.modules = "At least one module is required";
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+  const handleNext = () => {
+    if (validateStep(currentStep)) {
+      setCurrentStep(prev => prev + 1);
+    }
+  };
+
+  const handlePrevious = () => {
+    setCurrentStep(prev => prev - 1);
   };
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
-    setErrors({ ...errors, [name]: "" });
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+    setErrors({ ...errors, [e.target.name]: "" });
   };
 
-  const addCourse = () => {
-    if (newCourse.trim()) {
-      setFormData({ ...formData, courses: [...formData.courses, newCourse.trim()] });
-      setNewCourse("");
-    }
+  const handleCourseChange = (selectedCourses) => {
+    const courses = selectedCourses.map(option => option.value);
+    setFormData({ 
+      ...formData, 
+      courses,
+      modules: [] 
+    });
   };
 
-  const addModule = () => {
-    if (newModule.trim()) {
-      setFormData({ ...formData, modules: [...formData.modules, newModule.trim()] });
-      setNewModule("");
-    }
+  const handleModuleChange = (selectedModules) => {
+    setFormData({ 
+      ...formData, 
+      modules: selectedModules.map(module => module.value)
+    });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!validateStep2()) return;
-    
-    const payload = {
-      ...formData,
-      availability: formData.availability === "true",
-      salary: Number(formData.salary),
-    };
+    if (!validateStep(3)) return;
 
-    const response = await fetch("http://localhost:5001/api/examiners", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    setLoading(true);
+    const loadingToast = toast.loading('Adding examiner...');
 
-    if (response.ok) {
-      alert("Examiner added successfully");
-      navigate("/viewexaminers");
-    } else {
-      alert("Error adding examiner");
+    try {
+      const response = await fetch("http://localhost:5001/api/examiners", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+
+      if (response.ok) {
+        toast.success('Examiner added successfully!', { id: loadingToast });
+        navigate("/viewexaminers");
+      } else {
+        toast.error('Failed to add examiner', { id: loadingToast });
+      }
+    } catch (error) {
+      toast.error(`Error: ${error.message}`, { id: loadingToast });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const renderStepContent = () => {
+    switch (currentStep) {
+      case 1:
+        return (
+          <div className="space-y-6">
+            <h3 className="text-xl font-medium text-gray-700 mb-6">Personal Information</h3>
+            {["id", "email", "fname", "lname"].map((field) => (
+              <div key={field} className="relative">
+                <div className="flex items-center">
+                  {field === "email" && <Mail className="w-5 h-5 text-gray-400 absolute left-3" />}
+                  {field === "id" && <UserPlus className="w-5 h-5 text-gray-400 absolute left-3" />}
+                  <input
+                    type={field === "email" ? "email" : "text"}
+                    name={field}
+                    value={formData[field]}
+                    onChange={handleChange}
+                    placeholder={field === "fname" ? "First Name" : 
+                               field === "lname" ? "Last Name" : 
+                               field.toUpperCase()}
+                    className={`w-full pl-10 pr-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 ${
+                      errors[field] ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                  />
+                </div>
+                {errors[field] && (
+                  <p className="text-red-500 text-sm mt-1">{errors[field]}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        );
+
+      case 2:
+        return (
+          <div className="space-y-6">
+            <h3 className="text-xl font-medium text-gray-700 mb-6">Professional Details</h3>
+            <div className="relative">
+              <div className="flex items-center">
+                <GraduationCap className="w-5 h-5 text-gray-400 absolute left-3" />
+                <select
+                  name="position"
+                  value={formData.position}
+                  onChange={handleChange}
+                  className={`w-full pl-10 pr-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 ${
+                    errors.position ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                >
+                  <option value="">Select Position</option>
+                  {examinerPositions.map((position) => (
+                    <option key={position} value={position}>{position}</option>
+                  ))}
+                </select>
+              </div>
+              {errors.position && (
+                <p className="text-red-500 text-sm mt-1">{errors.position}</p>
+              )}
+            </div>
+
+            <div className="relative">
+              <div className="flex items-center">
+                <Phone className="w-5 h-5 text-gray-400 absolute left-3" />
+                <input
+                  type="tel"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleChange}
+                  placeholder="Phone Number"
+                  className={`w-full pl-10 pr-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 ${
+                    errors.phone ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                />
+              </div>
+              {errors.phone && (
+                <p className="text-red-500 text-sm mt-1">{errors.phone}</p>
+              )}
+            </div>
+
+            <div className="relative">
+              <div className="flex items-center">
+                <Building2 className="w-5 h-5 text-gray-400 absolute left-3" />
+                <select
+                  name="department"
+                  value={formData.department}
+                  onChange={handleChange}
+                  className={`w-full pl-10 pr-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 ${
+                    errors.department ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                >
+                  <option value="">Select Department</option>
+                  {departments.map((dept) => (
+                    <option key={dept} value={dept}>{dept}</option>
+                  ))}
+                </select>
+              </div>
+              {errors.department && (
+                <p className="text-red-500 text-sm mt-1">{errors.department}</p>
+              )}
+            </div>
+          </div>
+        );
+
+      case 3:
+        return (
+          <div className="space-y-6">
+            <h3 className="text-xl font-medium text-gray-700 mb-6">Course Assignment</h3>
+            <div className="relative">
+              <div className="flex items-center mb-2">
+                <BookOpen className="w-5 h-5 text-gray-400 mr-2" />
+                <span className="text-sm font-medium text-gray-600">Select Courses</span>
+              </div>
+              <Select
+                isMulti
+                name="courses"
+                options={Object.keys(courseModules).map((course) => ({
+                  label: course,
+                  value: course,
+                }))}
+                value={formData.courses.map((course) => ({
+                  label: course,
+                  value: course,
+                }))}
+                onChange={handleCourseChange}
+                className="react-select-container"
+                classNamePrefix="react-select"
+                placeholder="Select courses..."
+              />
+              {errors.courses && (
+                <p className="text-red-500 text-sm mt-1">{errors.courses}</p>
+              )}
+            </div>
+
+            {formData.courses.length > 0 && (
+              <div className="relative">
+                <div className="flex items-center mb-2">
+                  <BookOpen className="w-5 h-5 text-gray-400 mr-2" />
+                  <span className="text-sm font-medium text-gray-600">Select Modules</span>
+                </div>
+                <Select
+                  isMulti
+                  name="modules"
+                  options={formData.courses.flatMap((course) =>
+                    courseModules[course]?.map((module) => ({
+                      label: module,
+                      value: module,
+                    }))
+                  )}
+                  value={formData.modules.map((module) => ({
+                    label: module,
+                    value: module,
+                  }))}
+                  onChange={handleModuleChange}
+                  className="react-select-container"
+                  classNamePrefix="react-select"
+                  placeholder="Select modules..."
+                />
+                {errors.modules && (
+                  <p className="text-red-500 text-sm mt-1">{errors.modules}</p>
+                )}
+              </div>
+            )}
+          </div>
+        );
+
+      default:
+        return null;
     }
   };
 
   return (
-    <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-200">
+    <div className="flex min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <Sidebar />
-      <div className="flex flex-col justify-center items-center w-full p-6">
-        <div className="bg-white shadow-2xl rounded-2xl p-10 w-full max-w-2xl border border-gray-300">
-          <h2 className="text-3xl font-extrabold text-center text-gray-700 mb-6">
-            Add Examiner
-          </h2>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {step === 1 && (
-              <>
-                {["id", "email", "fname", "lname", "position", "phone"].map((name) => (
-                  <div key={name} className="relative">
-                    <input
-                      type={name === "email" ? "email" : "text"}
-                      name={name}
-                      value={formData[name]}
-                      onChange={handleChange}
-                      placeholder={name.replace(/\b\w/g, (char) => char.toUpperCase())}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 shadow-sm"
-                      required
-                    />
-                    {errors[name] && <p className="text-red-500 text-sm">{errors[name]}</p>}
+      <div className="flex-1 p-8">
+        <div className="max-w-4xl mx-auto">
+          <div className="bg-white rounded-2xl shadow-xl p-8">
+            <h2 className="text-3xl font-bold text-gray-800 text-center mb-8">
+              Add New Examiner
+            </h2>
+
+            {/* Progress Steps */}
+            <div className="flex justify-between items-center mb-8">
+              {[1, 2, 3].map((step) => (
+                <div key={step} className="flex items-center">
+                  <div
+                    className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                      currentStep >= step
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-gray-200 text-gray-500'
+                    }`}
+                  >
+                    <span className="text-xl">{step}</span>
                   </div>
-                ))}
+                  {step < 3 && (
+                    <ChevronRight className="w-6 h-6 text-gray-500 mx-4" />
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Step Content */}
+            {renderStepContent()}
+
+            <div className="flex justify-between mt-8">
+              {currentStep > 1 && (
                 <button
-                  type="button"
-                  onClick={() => validateStep1() && setStep(2)}
-                  className="w-full bg-blue-600 text-white p-3 rounded-lg font-semibold text-lg hover:bg-blue-700 transition duration-300"
+                  onClick={handlePrevious}
+                  className="bg-gray-300 text-gray-700 py-2 px-6 rounded-lg hover:bg-gray-400"
+                >
+                  Back
+                </button>
+              )}
+
+              {currentStep < 3 ? (
+                <button
+                  onClick={handleNext}
+                  className="bg-blue-500 text-white py-2 px-6 rounded-lg hover:bg-blue-600"
                 >
                   Next
                 </button>
-              </>
-            )}
-
-            {step === 2 && (
-              <>
-                <div className="relative">
-                  <input
-                    type="text"
-                    name="department"
-                    value={formData.department}
-                    onChange={handleChange}
-                    placeholder="Department"
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 shadow-sm"
-                    required
-                  />
-                  {errors.department && <p className="text-red-500 text-sm">{errors.department}</p>}
-                </div>
-
-                <div>
-                  <input
-                    type="text"
-                    value={newCourse}
-                    onChange={(e) => setNewCourse(e.target.value)}
-                    placeholder="Add Course"
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 shadow-sm"
-                  />
-                  <button type="button" onClick={addCourse} className="bg-green-500 text-white p-2 rounded ml-2">Add</button>
-                  <ul>{formData.courses.map((course, index) => <li key={index}>{course}</li>)}</ul>
-                  {errors.courses && <p className="text-red-500 text-sm">{errors.courses}</p>}
-                </div>
-
-                <div>
-                  <input
-                    type="text"
-                    value={newModule}
-                    onChange={(e) => setNewModule(e.target.value)}
-                    placeholder="Add Module"
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 shadow-sm"
-                  />
-                  <button type="button" onClick={addModule} className="bg-green-500 text-white p-2 rounded ml-2">Add</button>
-                  <ul>{formData.modules.map((module, index) => <li key={index}>{module}</li>)}</ul>
-                  {errors.modules && <p className="text-red-500 text-sm">{errors.modules}</p>}
-                </div>
-
-                <div className="flex justify-between">
-                  <button type="button" onClick={() => setStep(1)} className="bg-gray-500 text-white p-3 rounded-lg">Back</button>
-                  <button type="submit" className="bg-blue-600 text-white p-3 rounded-lg">Submit</button>
-                </div>
-              </>
-            )}
-          </form>
+              ) : (
+                <button
+                  onClick={handleSubmit}
+                  className="bg-green-500 text-white py-2 px-6 rounded-lg hover:bg-green-600"
+                  disabled={loading}
+                >
+                  {loading ? 'Submitting...' : 'Submit'}
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>
