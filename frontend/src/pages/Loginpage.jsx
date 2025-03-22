@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom'; // For redirection after login
-import ExaminerLogo from '../../public/Img/Examiner.png'; // Adjust the path as needed
+
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');

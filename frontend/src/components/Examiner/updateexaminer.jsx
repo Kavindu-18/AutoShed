@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Loader2, Save, UserCog } from "lucide-react";
+import { ArrowLeft, Loader2, Save, UserCog, CircleDot } from "lucide-react";
 import Select from "react-select";
-import toast from "react-hot-toast";
+import { Toaster, toast } from "react-hot-toast";
 import Sidebar from "../Sidebar";
 
 export default function UpdateExaminer() {
@@ -66,7 +66,13 @@ export default function UpdateExaminer() {
         console.error("Error fetching examiner:", error);
         setError("Failed to load examiner data.");
         setLoading(false);
-        toast.error("Failed to load examiner data");
+        toast.error("Failed to load examiner data", {
+          position: "bottom-right",
+          style: {
+            background: "#ef4444",
+            color: "#fff",
+          },
+        });
       });
   }, [id]);
 
@@ -118,7 +124,17 @@ export default function UpdateExaminer() {
 
       toast.success("Examiner updated successfully!", {
         duration: 4000,
-        icon: '🎉',
+        position: "bottom-right",
+        style: {
+          background: "#22c55e",
+          color: "#fff",
+          padding: "16px",
+          borderRadius: "8px",
+        },
+        iconTheme: {
+          primary: "#fff",
+          secondary: "#22c55e",
+        },
       });
 
       setTimeout(() => {
@@ -127,7 +143,13 @@ export default function UpdateExaminer() {
     } catch (error) {
       console.error("Error updating examiner:", error);
       setError("Failed to update examiner.");
-      toast.error("Failed to update examiner");
+      toast.error("Failed to update examiner", {
+        position: "bottom-right",
+        style: {
+          background: "#ef4444",
+          color: "#fff",
+        },
+      });
     } finally {
       setSaving(false);
     }
@@ -146,18 +168,38 @@ export default function UpdateExaminer() {
 
   return (
     <div className="flex min-h-screen bg-gray-50">
+      <Toaster
+        position="bottom-right"
+        toastOptions={{
+          style: {
+            background: "#22c55e",
+            color: "#fff",
+            padding: "16px",
+            borderRadius: "8px",
+          },
+        }}
+      />
       <Sidebar />
       <div className="flex-1 px-8 py-6">
         <div className="mx-auto max-w-4xl">
-          <div className="mb-8 flex items-center justify-between">
-            <div>
-              <h1 className="flex items-center text-3xl font-bold text-gray-900">
-                <UserCog className="mr-3 h-8 w-8 text-purple-500" />
-                Update Examiner Profile
-              </h1>
-              <p className="mt-2 text-sm text-gray-600">
-                Update the examiner's information and credentials
-              </p>
+          <div className="mb-8">
+            <button
+              onClick={() => navigate("/viewexaminers")}
+              className="mb-4 inline-flex items-center text-gray-600 hover:text-gray-900"
+            >
+              <ArrowLeft className="mr-2 h-5 w-5" />
+              Back to Examiners
+            </button>
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="flex items-center text-3xl font-bold text-gray-900">
+                  <UserCog className="mr-3 h-8 w-8 text-purple-500" />
+                  Update Examiner Profile
+                </h1>
+                <p className="mt-2 text-sm text-gray-600">
+                  Update the examiner's information and credentials
+                </p>
+              </div>
             </div>
           </div>
 
@@ -203,19 +245,20 @@ export default function UpdateExaminer() {
                     className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
                   />
                 </div>
-                <div className="flex items-center space-x-2">
-                  <label className="text-sm font-medium text-gray-700">Status</label>
-                  <label className="inline-flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={examiner.availability}
-                      onChange={handleAvailabilityChange}
-                      className="form-checkbox h-5 w-5 text-purple-600"
-                    />
-                    <span className="ml-2 text-sm font-medium text-gray-700">
-                      {examiner.availability ? "Available" : "Unavailable"}
-                    </span>
-                  </label>
+                <div className="flex items-center">
+                  <CircleDot 
+                    className={`h-5 w-5 mr-2 ${examiner.availability ? 'text-green-500' : 'text-red-500'}`} 
+                  />
+                  <span className="text-sm font-medium text-gray-700">
+                    {examiner.availability ? "Available" : "Unavailable"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleAvailabilityChange}
+                    className="ml-4 text-sm text-purple-600 hover:text-purple-800"
+                  >
+                    Toggle Status
+                  </button>
                 </div>
               </div>
             </div>

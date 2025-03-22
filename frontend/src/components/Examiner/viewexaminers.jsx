@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Eye, Edit, Trash2, Plus, Search, FileSpreadsheet, Filter } from "lucide-react";
 import Sidebar from "../Sidebar";
 import { useNavigate } from "react-router-dom";
+import { Toaster, toast } from "react-hot-toast";
 
 export default function ViewExaminers() {
   const [examiners, setExaminers] = useState([]);
@@ -10,10 +11,11 @@ export default function ViewExaminers() {
   const [departmentFilter, setDepartmentFilter] = useState("");
   const [positionFilter, setPositionFilter] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [examinerToDelete, setExaminerToDelete] = useState(null);
 
   const navigate = useNavigate();
 
-  // Fetch data from API
   useEffect(() => {
     fetch("http://localhost:5001/api/examiners")
       .then((response) => {
@@ -29,7 +31,6 @@ export default function ViewExaminers() {
       .catch((error) => console.error("Error fetching examiners:", error));
   }, []);
 
-  // Handle search & filtering
   useEffect(() => {
     let results = examiners.filter((examiner) => {
       const fullName = `${examiner.fname} ${examiner.lname}`.toLowerCase();
@@ -56,24 +57,65 @@ export default function ViewExaminers() {
     setFilteredExaminers(results);
   }, [searchTerm, examiners, departmentFilter, positionFilter]);
 
-  // Delete Function
-  const handleDelete = (id) => {
-    if (window.confirm("Are you sure you want to delete this examiner?")) {
-      fetch(`http://localhost:5001/api/examiners/${id}`, { method: "DELETE" })
-        .then((res) => res.json())
-        .then(() => {
-          setExaminers(examiners.filter((examiner) => examiner.id !== id));
-        })
-        .catch((error) => console.error("Error deleting examiner:", error));
+  const handleDeleteClick = (examiner) => {
+    setExaminerToDelete(examiner);
+    setShowDeleteModal(true);
+  };
+
+  const handleDelete = async () => {
+    try {
+      const response = await fetch(`http://localhost:5001/api/examiners/${examinerToDelete.id}`, {
+        method: "DELETE"
+      });
+
+      if (!response.ok) throw new Error("Failed to delete examiner");
+
+      setExaminers(examiners.filter((e) => e.id !== examinerToDelete.id));
+      setShowDeleteModal(false);
+      setExaminerToDelete(null);
+
+      toast.success("Examiner Removed Successfully", {
+        duration: 4000,
+        position: "bottom-right",
+        style: {
+          background: "#22c55e",
+          color: "#fff",
+          padding: "16px",
+          borderRadius: "8px",
+        },
+        iconTheme: {
+          primary: "#fff",
+          secondary: "#22c55e",
+        },
+      });
+    } catch (error) {
+      console.error("Error deleting examiner:", error);
+      toast.error("Failed to delete examiner", {
+        position: "bottom-right",
+        style: {
+          background: "#ef4444",
+          color: "#fff",
+        },
+      });
     }
   };
 
-  // Unique dropdown values
   const uniqueDepartments = [...new Set(examiners.map((examiner) => examiner.department))];
   const uniquePositions = [...new Set(examiners.map((examiner) => examiner.position))];
 
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      <Toaster
+        position="bottom-right"
+        toastOptions={{
+          style: {
+            background: "#22c55e",
+            color: "#fff",
+            padding: "16px",
+            borderRadius: "8px",
+          },
+        }}
+      />
       <div className="flex-1 flex">
         <Sidebar />
         <div className="p-8 w-full max-w-[1600px] mx-auto">
@@ -97,7 +139,6 @@ export default function ViewExaminers() {
             </div>
           </div>
 
-          {/* Search and Filters */}
           <div className="bg-white p-6 rounded-2xl shadow-lg mb-6">
             <div className="flex flex-wrap gap-4 items-center">
               <div className="flex-1 relative">
@@ -119,7 +160,6 @@ export default function ViewExaminers() {
               </button>
             </div>
 
-            {/* Expandable Filters */}
             {showFilters && (
               <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-2 gap-4">
                 <div>
@@ -152,7 +192,6 @@ export default function ViewExaminers() {
             )}
           </div>
 
-          {/* Examiner Table */}
           <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
             <div className="overflow-x-auto">
               {filteredExaminers.length > 0 ? (
@@ -206,7 +245,7 @@ export default function ViewExaminers() {
                               <Edit size={18} />
                             </button>
                             <button
-                              onClick={() => handleDelete(examiner.id)}
+                              onClick={() => handleDeleteClick(examiner)}
                               className="text-red-600 hover:text-red-800 transition-colors duration-200"
                               title="Delete"
                             >
@@ -226,6 +265,35 @@ export default function ViewExaminers() {
               )}
             </div>
           </div>
+
+          {/* Delete Confirmation Modal */}
+          {showDeleteModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+              <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+                <h3 className="mb-4 text-lg font-medium text-gray-900">Delete Examiner</h3>
+                <p className="mb-6 text-sm text-gray-500">
+                  Are you sure you want to delete this examiner? This action cannot be undone.
+                </p>
+                <div className="flex justify-end space-x-4">
+                  <button
+                    onClick={() => {
+                      setShowDeleteModal(false);
+                      setExaminerToDelete(null);
+                    }}
+                    className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

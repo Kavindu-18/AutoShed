@@ -77,34 +77,50 @@ export default function ExaminerProfile() {
 
   const generatePDF = () => {
     const doc = new jsPDF();
-    
-    // Add examiner details
-    doc.setFontSize(20);
+
+    // Modern Design for PDF
+    const primaryColor = "#3b82f6"; // Blue 600
+    const secondaryColor = "#4f46e5"; // Indigo 600
+    const textColor = "#374151"; // Gray 800
+
+    // Header
+    doc.setFillColor(primaryColor);
+    doc.rect(0, 0, doc.internal.pageSize.getWidth(), 30, "F");
+    doc.setFontSize(18);
+    doc.setTextColor("#ffffff");
     doc.text("Examiner Report", 20, 20);
-    
-    doc.setFontSize(12);
-    doc.text(`Name: ${examiner.fname} ${examiner.lname}`, 20, 40);
-    doc.text(`Position: ${examiner.position}`, 20, 50);
-    doc.text(`Department: ${examiner.department}`, 20, 60);
-    doc.text(`Email: ${examiner.email}`, 20, 70);
-    doc.text(`Phone: ${examiner.phone}`, 20, 80);
-    doc.text(`Salary: Rs ${examiner.salary}`, 20, 90);
-    
-    // Add schedule table
-    doc.text("Scheduled Presentations", 20, 110);
+
+    // Examiner Details
+    doc.setFontSize(14);
+    doc.setTextColor(textColor);
+    doc.text(`Name: ${examiner.fname} ${examiner.lname}`, 20, 45);
+    doc.text(`Position: ${examiner.position}`, 20, 55);
+    doc.text(`Department: ${examiner.department}`, 20, 65);
+    doc.text(`Email: ${examiner.email}`, 20, 75);
+    doc.text(`Phone: ${examiner.phone}`, 20, 85);
+    doc.text(`Salary: Rs ${examiner.salary}`, 20, 95);
+
+    // Schedule Table
+    doc.setFontSize(16);
+    doc.text("Scheduled Presentations", 20, 115);
     autoTable(doc, {
-      startY: 120,
+      startY: 125,
       head: [["Date", "Time", "Location", "Presentation"]],
       body: scheduleData.map(item => [
         item.date,
         item.time,
         item.location,
         item.presentation
-      ])
+      ]),
+      headStyles: { fillColor: secondaryColor, textColor: "#ffffff", fontStyle: "bold" },
+      bodyStyles: { textColor: textColor },
+      alternateRowStyles: { fillColor: "#f9fafb" }
     });
-    
-    // Add student groups table
+
+    // Student Groups Table
+    const tableY = doc.lastAutoTable.finalY + 20;
     doc.addPage();
+    doc.setFontSize(16);
     doc.text("Student Groups", 20, 20);
     autoTable(doc, {
       startY: 30,
@@ -113,9 +129,12 @@ export default function ExaminerProfile() {
         group.id,
         group.members.join(", "),
         group.project
-      ])
+      ]),
+      headStyles: { fillColor: secondaryColor, textColor: "#ffffff", fontStyle: "bold" },
+      bodyStyles: { textColor: textColor },
+      alternateRowStyles: { fillColor: "#f9fafb" }
     });
-    
+
     // Save the PDF
     doc.save(`examiner_report_${examiner.fname}_${examiner.lname}.pdf`);
   };
