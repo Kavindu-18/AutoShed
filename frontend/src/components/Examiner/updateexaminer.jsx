@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { Loader2, Save, UserCog } from "lucide-react";
 import Sidebar from "../Sidebar";
 
 export default function UpdateExaminer() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  // State for examiner data and loading state
   const [examiner, setExaminer] = useState({
     fname: "",
     lname: "",
@@ -20,16 +20,13 @@ export default function UpdateExaminer() {
     salary: 0,
   });
 
-  const [loading, setLoading] = useState(true); // Loading state for fetching data
-  const [error, setError] = useState(""); // Error state for any fetch or validation errors
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  // Fetch examiner data when component mounts
   useEffect(() => {
     fetch(`http://localhost:5001/api/examiners/${id}`)
       .then((response) => {
-        if (!response.ok) {
-          throw new Error("Failed to fetch examiner data");
-        }
+        if (!response.ok) throw new Error("Failed to fetch examiner data");
         return response.json();
       })
       .then((data) => {
@@ -43,46 +40,36 @@ export default function UpdateExaminer() {
       });
   }, [id]);
 
-  // Handle input field changes
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setExaminer((prevExaminer) => ({
-      ...prevExaminer,
+    setExaminer((prev) => ({
+      ...prev,
       [name]: value,
     }));
   };
 
-  // Handle changes for courses and modules (array fields)
   const handleArrayChange = (e, field) => {
     const value = e.target.value;
-    setExaminer((prevExaminer) => ({
-      ...prevExaminer,
+    setExaminer((prev) => ({
+      ...prev,
       [field]: value.split(",").map((item) => item.trim()),
     }));
   };
 
-  // Handle form submission
   const handleSubmit = (e) => {
     e.preventDefault();
-
-    setError(""); // Clear any previous errors
+    setError("");
 
     fetch(`http://localhost:5001/api/examiners/${id}`, {
       method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(examiner),
     })
       .then((response) => {
-        if (!response.ok) {
-          throw new Error("Failed to update examiner");
-        }
+        if (!response.ok) throw new Error("Failed to update examiner");
         return response.json();
       })
-      .then(() => {
-        navigate("/viewexaminers"); // Redirect after successful update
-      })
+      .then(() => navigate("/viewexaminers"))
       .catch((error) => {
         console.error("Error updating examiner:", error);
         setError("Failed to update examiner.");
@@ -90,77 +77,207 @@ export default function UpdateExaminer() {
   };
 
   if (loading) {
-    return <div>Loading...</div>; // Display loading message while fetching data
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <Loader2 className="mx-auto h-8 w-8 animate-spin text-purple-500" />
+          <p className="mt-2 text-sm text-gray-500">Loading examiner data...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-100 flex-col">
-      <div className="flex-1 flex">
-        <Sidebar />
-        <div className="p-6 w-full">
-          <h1 className="text-3xl font-bold text-gray-800 mb-6">
-            Update Examiner
-          </h1>
-          {error && <div className="text-red-500 mb-4">{error}</div>} {/* Display error if any */}
-          <form onSubmit={handleSubmit} className="max-w-md mx-auto">
-            {/* ID Field - Display only, cannot be edited */}
-            <div className="mb-4">
-              <label htmlFor="id" className="block text-gray-700 text-sm font-bold mb-2">Examiner ID</label>
-              <input
-                type="text"
-                id="id"
-                name="id"
-                value={id} // Display the ID
-                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline bg-gray-200 cursor-not-allowed"
-                readOnly // Make it read-only so it cannot be edited
-              />
+    <div className="flex min-h-screen bg-gray-50">
+      <Sidebar />
+      <div className="flex-1 px-8 py-6">
+        <div className="mx-auto max-w-4xl">
+          <div className="mb-8 flex items-center justify-between">
+            <div>
+              <h1 className="flex items-center text-3xl font-bold text-gray-900">
+                <UserCog className="mr-3 h-8 w-8 text-purple-500" />
+                Update Examiner Profile
+              </h1>
+              <p className="mt-2 text-sm text-gray-600">
+                Update the examiner's information and credentials
+              </p>
+            </div>
+          </div>
+
+          {error && (
+            <div className="mb-6 rounded-lg bg-red-50 p-4 text-sm text-red-500">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="rounded-lg bg-white p-6 shadow-sm">
+              <h2 className="mb-4 text-lg font-semibold text-gray-900">
+                Basic Information
+              </h2>
+              <div className="grid gap-6 md:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    First Name
+                  </label>
+                  <input
+                    type="text"
+                    name="fname"
+                    value={examiner.fname}
+                    onChange={handleChange}
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Last Name
+                  </label>
+                  <input
+                    type="text"
+                    name="lname"
+                    value={examiner.lname}
+                    onChange={handleChange}
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                  />
+                </div>
+              </div>
             </div>
 
-            <div className="mb-4">
-              <label htmlFor="fname" className="block text-gray-700 text-sm font-bold mb-2">First Name</label>
-              <input type="text" id="fname" name="fname" value={examiner.fname} onChange={handleChange} className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" />
+            <div className="rounded-lg bg-white p-6 shadow-sm">
+              <h2 className="mb-4 text-lg font-semibold text-gray-900">
+                Contact Details
+              </h2>
+              <div className="grid gap-6 md:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={examiner.email}
+                    onChange={handleChange}
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Phone
+                  </label>
+                  <input
+                    type="text"
+                    name="phone"
+                    value={examiner.phone}
+                    onChange={handleChange}
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                  />
+                </div>
+              </div>
             </div>
-            <div className="mb-4">
-              <label htmlFor="lname" className="block text-gray-700 text-sm font-bold mb-2">Last Name</label>
-              <input type="text" id="lname" name="lname" value={examiner.lname} onChange={handleChange} className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" />
+
+            <div className="rounded-lg bg-white p-6 shadow-sm">
+              <h2 className="mb-4 text-lg font-semibold text-gray-900">
+                Professional Details
+              </h2>
+              <div className="grid gap-6 md:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Position
+                  </label>
+                  <input
+                    type="text"
+                    name="position"
+                    value={examiner.position}
+                    onChange={handleChange}
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Department
+                  </label>
+                  <input
+                    type="text"
+                    name="department"
+                    value={examiner.department}
+                    onChange={handleChange}
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Availability
+                  </label>
+                  <select
+                    name="availability"
+                    value={examiner.availability}
+                    onChange={handleChange}
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                  >
+                    <option value="true">Available</option>
+                    <option value="false">Not Available</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Salary
+                  </label>
+                  <input
+                    type="number"
+                    name="salary"
+                    value={examiner.salary}
+                    onChange={handleChange}
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                  />
+                </div>
+              </div>
             </div>
-            <div className="mb-4">
-              <label htmlFor="email" className="block text-gray-700 text-sm font-bold mb-2">Email</label>
-              <input type="email" id="email" name="email" value={examiner.email} onChange={handleChange} className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" />
+
+            <div className="rounded-lg bg-white p-6 shadow-sm">
+              <h2 className="mb-4 text-lg font-semibold text-gray-900">
+                Academic Information
+              </h2>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Courses (comma separated)
+                  </label>
+                  <input
+                    type="text"
+                    value={examiner.courses.join(", ")}
+                    onChange={(e) => handleArrayChange(e, "courses")}
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Modules (comma separated)
+                  </label>
+                  <input
+                    type="text"
+                    value={examiner.modules.join(", ")}
+                    onChange={(e) => handleArrayChange(e, "modules")}
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                  />
+                </div>
+              </div>
             </div>
-            <div className="mb-4">
-              <label htmlFor="position" className="block text-gray-700 text-sm font-bold mb-2">Position</label>
-              <input type="text" id="position" name="position" value={examiner.position} onChange={handleChange} className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" />
-            </div>
-            <div className="mb-4">
-              <label htmlFor="phone" className="block text-gray-700 text-sm font-bold mb-2">Phone</label>
-              <input type="text" id="phone" name="phone" value={examiner.phone} onChange={handleChange} className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" />
-            </div>
-            <div className="mb-4">
-              <label htmlFor="department" className="block text-gray-700 text-sm font-bold mb-2">Department</label>
-              <input type="text" id="department" name="department" value={examiner.department} onChange={handleChange} className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" />
-            </div>
-            <div className="mb-4">
-              <label htmlFor="availability" className="block text-gray-700 text-sm font-bold mb-2">Availability</label>
-              <select id="availability" name="availability" value={examiner.availability} onChange={handleChange} className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
-                <option value="true">Available</option>
-                <option value="false">Not Available</option>
-              </select>
-            </div>
-            <div className="mb-4">
-              <label htmlFor="courses" className="block text-gray-700 text-sm font-bold mb-2">Courses (comma separated)</label>
-              <input type="text" id="courses" name="courses" value={examiner.courses.join(", ")} onChange={(e) => handleArrayChange(e, "courses")} className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" />
-            </div>
-            <div className="mb-4">
-              <label htmlFor="modules" className="block text-gray-700 text-sm font-bold mb-2">Modules (comma separated)</label>
-              <input type="text" id="modules" name="modules" value={examiner.modules.join(", ")} onChange={(e) => handleArrayChange(e, "modules")} className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" />
-            </div>
-            <div className="mb-4">
-              <label htmlFor="salary" className="block text-gray-700 text-sm font-bold mb-2">Salary</label>
-              <input type="number" id="salary" name="salary" value={examiner.salary} onChange={handleChange} className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" />
-            </div>
-            <div className="flex items-center justify-between">
-              <button type="submit" className="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">Update</button>
+
+            <div className="flex justify-end space-x-4">
+              <button
+                type="button"
+                onClick={() => navigate("/viewexaminers")}
+                className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="inline-flex items-center rounded-md bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+              >
+                <Save className="mr-2 h-4 w-4" />
+                Save Changes
+              </button>
             </div>
           </form>
         </div>
