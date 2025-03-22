@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 
 const examinerSchema = mongoose.Schema({
-  id: { type: String,  },
+  id: { type: String,unique: true , required: true },
   email:{ type: String, required: true,},
   fname: { type: String, required: true },
   lname: { type: String, required: true },
