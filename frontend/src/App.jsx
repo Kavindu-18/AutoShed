@@ -17,7 +17,7 @@ function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path ="/calendar" element={<Calendar />} />
-        <Route path ="/notices" element={<Notices />} />
+        <Route path ="/notify" element={<Notices />} />
       </Routes>
     </div>
     </>

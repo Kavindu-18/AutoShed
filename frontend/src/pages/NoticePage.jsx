@@ -1,46 +1,365 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { NoticeMng } from "../api/noticeApi";
+import Sidebar from "../components/Sidebar";
+import { Layout } from "antd";
 
-function EnhancedNoticePage() {
-  const [notices, setNotices] = useState([]);
-  const [filteredNotices, setFilteredNotices] = useState([]);
+const { Content } = Layout;
+
+// Enhanced Admin API functions with proper backend integration
+const AdminNotificationMng = {
+  getNotifications: async () => {
+    try {
+      return await NoticeMng.getNotices();
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      throw error;
+    }
+  },
+
+  uploadAttachment: async (file) => {
+    try {
+      // In a real implementation, this would use the actual backend API
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      // Replace with your actual API endpoint
+      // const response = await fetch('/api/attachments/upload', {
+      //   method: 'POST',
+      //   body: formData
+      // });
+      // const data = await response.json();
+      // return data;
+
+      // Create a local URL for the frontend display
+      const fileUrl = URL.createObjectURL(file);
+      
+      // Mock implementation for demo purposes
+      // Store additional metadata that we'll use in the UI, but only send the URL to the backend
+      const mockResponse = {
+        id: Date.now().toString(),
+        filename: file.name,
+        url: fileUrl, // This is what will be sent to the backend
+        size: file.size,
+        type: file.type,
+        displayUrl: fileUrl // For local UI display
+      };
+      return mockResponse;
+    } catch (error) {
+      console.error("Error in uploadAttachment:", error);
+      throw new Error(`Failed to upload ${file.name}: ${error.message}`);
+    }
+  },
+
+  deleteAttachment: async (attachmentId) => {
+    try {
+      // In a real implementation, this would call the actual backend API
+      // await fetch(`/api/attachments/${attachmentId}`, {
+      //   method: 'DELETE'
+      // });
+      
+      // Mock implementation for demo purposes
+      return { success: true };
+    } catch (error) {
+      console.error("Error in deleteAttachment:", error);
+      throw error;
+    }
+  },
+
+  createNotification: async (notification) => {
+    try {
+      // Add audit trail
+      notification.createdAt = new Date().toISOString();
+      notification.createdBy = "Current Admin User"; // Would come from auth context
+      
+      // Create a deep copy of the notification to avoid modifying the original
+      const notificationToSend = JSON.parse(JSON.stringify(notification));
+      
+      // Convert attachment objects to strings (URLs) for the backend
+      // The backend schema expects attachments to be an array of strings
+      if (Array.isArray(notificationToSend.attachments) && notificationToSend.attachments.length > 0) {
+        // Extract just the URLs from the attachment objects
+        notificationToSend.attachments = notificationToSend.attachments.map(attachment => 
+          attachment.url || attachment.filename || attachment
+        );
+      } else {
+        notificationToSend.attachments = [];
+      }
+      
+      console.log("Sending notification with attachments:", notificationToSend.attachments);
+      
+      // Make sure we call the backend API with properly formatted data
+      const result = await NoticeMng.createNotice(notificationToSend);
+      
+      // Return the result from the backend, not the local object
+      return result;
+    } catch (error) {
+      console.error("Error creating notification:", error);
+      throw error;
+    }
+  },
+
+  updateNotification: async (id, notification) => {
+    try {
+      // Add audit trail
+      notification.lastModifiedAt = new Date().toISOString();
+      notification.lastModifiedBy = "Current Admin User"; // Would come from auth context
+      
+      // Create a deep copy of the notification to avoid modifying the original
+      const notificationToSend = JSON.parse(JSON.stringify(notification));
+      
+      // Convert attachment objects to strings (URLs) for the backend
+      // The backend schema expects attachments to be an array of strings
+      if (Array.isArray(notificationToSend.attachments) && notificationToSend.attachments.length > 0) {
+        // Extract just the URLs from the attachment objects
+        notificationToSend.attachments = notificationToSend.attachments.map(attachment => 
+          attachment.url || attachment.filename || attachment
+        );
+      } else {
+        notificationToSend.attachments = [];
+      }
+      
+      console.log("Sending notification with attachments:", notificationToSend.attachments);
+      
+      // Make sure we call the backend API with properly formatted data
+      const result = await NoticeMng.updateNotice(id, notificationToSend);
+      
+      // Return the result from the backend, not the local object
+      return result;
+    } catch (error) {
+      console.error("Error updating notification:", error);
+      throw error;
+    }
+  },
+
+  bulkDeleteNotifications: async (ids) => {
+    try {
+      // Admin-specific function to delete multiple notifications at once
+      const results = await Promise.all(ids.map(id => NoticeMng.deleteNotice(id)));
+      return { 
+        success: results.every(result => result.success), 
+        deletedCount: results.filter(result => result.success).length 
+      };
+    } catch (error) {
+      console.error("Error in bulk delete:", error);
+      throw error;
+    }
+  },
+
+  getNotificationStats: async () => {
+    try {
+      // Fetch all notifications to calculate stats
+      const notifications = await NoticeMng.getNotices();
+
+      const currentDate = new Date();
+      const oneWeekLater = new Date();
+      oneWeekLater.setDate(oneWeekLater.getDate() + 7);
+
+      // Calculate stats
+      const totalNotifications = notifications.length;
+      const activeNotifications = notifications.filter(notification => 
+        new Date(notification.expirationDate) >= currentDate
+      ).length;
+
+      const expiringThisWeek = notifications.filter(notification => 
+        new Date(notification.expirationDate) >= currentDate && 
+        new Date(notification.expirationDate) <= oneWeekLater
+      ).length;
+
+      // Aggregate view counts by type
+      const viewsByType = notifications.reduce((acc, notification) => {
+        const type = notification.type;
+        if (!acc[type]) acc[type] = 0;
+        acc[type] += notification.viewCount || 0;
+        return acc;
+      }, {
+        Academic: 0,
+        Administrative: 0,
+        Event: 0
+      });
+
+      return {
+        totalNotifications,
+        activeNotifications,
+        expiringThisWeek,
+        viewsByType
+      };
+    } catch (error) {
+      console.error("Error fetching notification stats:", error);
+      throw error;
+    }
+  },
+
+  deleteNotification: async (id) => {
+    try {
+      return await NoticeMng.deleteNotice(id);
+    } catch (error) {
+      console.error("Error deleting notification:", error);
+      throw error;
+    }
+  }
+};
+
+// Utility functions for attachment handling
+const getAttachmentIcon = (attachment) => {
+  const type = typeof attachment === 'object' ? attachment.type : '';
+  
+  if (type.includes('image')) return '🖼️';
+  if (type.includes('pdf')) return '📄';
+  if (type.includes('word') || type.includes('document')) return '📝';
+  if (type.includes('excel') || type.includes('spreadsheet')) return '📊';
+  if (type.includes('zip')) return '🗜️';
+  if (type.includes('csv')) return '📋';
+  return '📎';
+};
+
+const formatAttachmentName = (attachment) => {
+  if (typeof attachment === 'string') return attachment.split('/').pop();
+  if (typeof attachment === 'object') return attachment.filename || 'Attachment';
+  return 'Attachment';
+};
+
+const formatFileSize = (bytes) => {
+  if (!bytes) return '';
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+  if (bytes === 0) return '0 Byte';
+  const i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
+  return Math.round(bytes / Math.pow(1024, i), 2) + ' ' + sizes[i];
+};
+
+// Function to normalize status values
+const normalizeStatus = (status) => {
+  if (!status) return 'Draft'; // Default status if undefined
+  // Convert to string and capitalize first letter
+  return status.toString().charAt(0).toUpperCase() + status.toString().slice(1);
+};
+
+// Get a valid URL from an attachment object or string
+const getAttachmentUrl = (attachment) => {
+  if (typeof attachment === 'object') {
+    return attachment.displayUrl || attachment.url || '#';
+  } else if (typeof attachment === 'string') {
+    return attachment;
+  }
+  return '#';
+};
+
+// Helper function to download attachment
+const downloadAttachment = (attachment) => {
+  try {
+    let url = '';
+    let filename = '';
+    
+    if (typeof attachment === 'object') {
+      url = attachment.displayUrl || attachment.url;
+      filename = attachment.filename || url.split('/').pop() || 'download';
+    } else if (typeof attachment === 'string') {
+      url = attachment;
+      filename = url.split('/').pop() || 'download';
+    } else {
+      throw new Error('Invalid attachment format');
+    }
+    
+    // Check if URL is valid
+    if (!url || url === '#') {
+      throw new Error('No valid URL found for the attachment');
+    }
+    
+    // Create an anchor element and set download attribute
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  } catch (error) {
+    console.error("Error downloading attachment:", error);
+    alert("Failed to download attachment: " + error.message);
+  }
+};
+
+// Enhanced component to display attachments - direct opening instead of modal
+const AttachmentsList = ({ attachments }) => {
+  if (!attachments || !Array.isArray(attachments) || attachments.length === 0) {
+    return null;
+  }
+  
+  return (
+    <div className="mt-2">
+      <div className="flex items-center text-xs text-gray-500 mb-1">
+        <span className="mr-1">📎</span>
+        <span>{attachments.length} attachment{attachments.length !== 1 ? 's' : ''}</span>
+      </div>
+      
+      <div className="pl-4 border-l-2 border-gray-200 space-y-2">
+        {attachments.map((attachment, idx) => {
+          // Get URL and filename
+          const url = getAttachmentUrl(attachment);
+          const filename = formatAttachmentName(attachment);
+          const fileType = typeof attachment === 'object' ? attachment.type : '';
+          const fileSize = typeof attachment === 'object' ? attachment.size : null;
+          
+          return (
+            <div key={idx} className="flex items-center text-xs bg-gray-50 p-2 rounded-md">
+              <span className="text-xl mr-2">{getAttachmentIcon(attachment)}</span>
+              <div className="flex-1 overflow-hidden">
+                <div className="truncate font-medium">{filename}</div>
+                {fileType && fileSize && (
+                  <div className="text-gray-500 text-xs">
+                    {fileType.split('/')[1]} · {formatFileSize(fileSize)}
+                  </div>
+                )}
+              </div>
+              <div className="ml-2 flex space-x-2">
+                <a 
+                  href={url}
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                >
+                  Open
+                </a>
+                <button
+                  onClick={() => downloadAttachment(attachment)}
+                  className="px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200"
+                >
+                  Download
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+function AdminNotificationPanel() {
+  // State management
+  const [notifications, setNotifications] = useState([]);
+  const [filteredNotifications, setFilteredNotifications] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isFormVisible, setIsFormVisible] = useState(false);
-  const [editNoticeId, setEditNoticeId] = useState(null);
-  const [darkMode, setDarkMode] = useState(false);
+  const [editNotificationId, setEditNotificationId] = useState(null);
   const [sortBy, setSortBy] = useState("effectiveDate");
   const [sortOrder, setSortOrder] = useState("desc");
   const [filterType, setFilterType] = useState("all");
   const [filterPriority, setFilterPriority] = useState("all");
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [noticeToDelete, setNoticeToDelete] = useState(null);
-  const [showAttachmentModal, setShowAttachmentModal] = useState(false);
-  const [currentAttachment, setCurrentAttachment] = useState(null);
-  const [noticeStats, setNoticeStats] = useState({
-    total: 0,
-    active: 0,
-    expired: 0,
-    byType: {},
-    byPriority: {}
-  });
+  const [filterStatus, setFilterStatus] = useState("all");
   const [isLoading, setIsLoading] = useState(false);
+  const [bulkSelectMode, setBulkSelectMode] = useState(false);
+  const [selectedNotifications, setSelectedNotifications] = useState([]);
   const [error, setError] = useState(null);
-  const [newNotice, setNewNotice] = useState({
-    id: Date.now().toString(),
-    title: "",
-    type: "Academic",
-    priority: "Medium",
-    body: "",
-    author: "",
-    effectiveDate: formatDate(new Date()),
-    expirationDate: formatDate(addDays(new Date(), 30)),
-    tags: [],
-    attachments: [],
-    publishToStudents: false,
-    publishToExaminers: false,
-    highlightNotice: false
-  });
+  const [tagInput, setTagInput] = useState("");
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [statusMessage, setStatusMessage] = useState("");
+  const [stats, setStats] = useState(null);
+  const [viewMode, setViewMode] = useState("list"); // list, grid, calendar
+  const [isDragging, setIsDragging] = useState(false);
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [refreshTrigger, setRefreshTrigger] = useState(0); // New state to trigger refreshes
 
+  // Utility functions
   function formatDate(date) {
     const d = new Date(date);
     let month = '' + (d.getMonth() + 1);
@@ -59,281 +378,275 @@ function EnhancedNoticePage() {
     return result;
   }
 
+  // Initial notification state with additional admin fields
+  const [newNotification, setNewNotification] = useState({
+    id: Date.now().toString(),
+    title: "",
+    type: "Academic",
+    priority: "Medium",
+    body: "",
+    author: "",
+    effectiveDate: formatDate(new Date()),
+    expirationDate: formatDate(addDays(new Date(), 30)),
+    tags: [],
+    attachments: [],
+    publishToStudents: false,
+    publishToExaminers: false,
+    highlightNotice: false,
+    status: "Draft", // Default status is now Draft instead of Published
+    notifyViaEmail: false, // New field: Send email notification
+    targetAudience: [] // New field: More specific targeting
+  });
+
+  // Fetch notifications and stats on component mount or when refreshTrigger changes
+  const fetchData = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const [fetchedNotifications, fetchedStats] = await Promise.all([
+        AdminNotificationMng.getNotifications(),
+        AdminNotificationMng.getNotificationStats()
+      ]);
+      
+      setNotifications(fetchedNotifications);
+      setStats(fetchedStats);
+    } catch (err) {
+      console.error("Error fetching admin data:", err);
+      setError("Failed to load administrative data. Please try again later.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [refreshTrigger]); // Add refreshTrigger as a dependency
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Filter and sort notifications whenever dependencies change
+  useEffect(() => {
+    let result = [...notifications];
+
+    // Apply type filter
+    if (filterType !== "all") {
+      result = result.filter(notification => notification.type === filterType);
+    }
+
+    // Apply priority filter
+    if (filterPriority !== "all") {
+      result = result.filter(notification => notification.priority === filterPriority);
+    }
+    
+    // Apply status filter - Updated to use normalized status values
+    if (filterStatus !== "all") {
+      result = result.filter(notification => {
+        const notificationStatus = normalizeStatus(notification.status);
+        return notificationStatus === filterStatus;
+      });
+    }
+
+    // Apply search filter (enhanced with more fields)
+    if (searchTerm) {
+      const lowerSearchTerm = searchTerm.toLowerCase();
+      result = result.filter(notification => 
+        (notification.title || '').toLowerCase().includes(lowerSearchTerm) ||
+        (notification.body || '').toLowerCase().includes(lowerSearchTerm) ||
+        (notification.author || '').toLowerCase().includes(lowerSearchTerm) ||
+        (notification.tags && Array.isArray(notification.tags) && notification.tags.some(tag => tag.toLowerCase().includes(lowerSearchTerm))) ||
+        (notification.id || '').toLowerCase().includes(lowerSearchTerm)
+      );
+    }
+
+    // Apply sorting
+    result.sort((a, b) => {
+      let valueA, valueB;
+
+      if (sortBy === "effectiveDate") {
+        valueA = new Date(a.effectiveDate);
+        valueB = new Date(b.effectiveDate);
+      } else if (sortBy === "priority") {
+        const priorityMap = { Low: 1, Medium: 2, High: 3 };
+        valueA = priorityMap[a.priority];
+        valueB = priorityMap[b.priority];
+      } else if (sortBy === "viewCount") {
+        valueA = a.viewCount || 0;
+        valueB = b.viewCount || 0;
+      } else {
+        valueA = a[sortBy];
+        valueB = b[sortBy];
+      }
+
+      if (sortOrder === "asc") {
+        return valueA > valueB ? 1 : -1;
+      } else {
+        return valueA < valueB ? 1 : -1;
+      }
+    });
+
+    setFilteredNotifications(result);
+  }, [notifications, filterType, filterPriority, filterStatus, searchTerm, sortBy, sortOrder]);
+
+  // Helper function to refresh data from backend
+  const refreshData = () => {
+    setRefreshTrigger(prev => prev + 1);
+  };
+
+  // Other utility functions
   function isExpired(expirationDate) {
     return new Date() > new Date(expirationDate);
   }
 
-  // Fetch notices from API on component mount
-  useEffect(() => {
-    const fetchNotices = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const response = await NoticeMng.getNotices();
-        setNotices(response);
-      } catch (err) {
-        console.error("Failed to fetch notices:", err);
-    setError("Failed to load notices. Please check your internet connection and try again.");
+  function isExpiringSoon(expirationDate) {
+    const now = new Date();
+    const expDate = new Date(expirationDate);
+    const daysUntilExpiration = Math.floor((expDate - now) / (1000 * 60 * 60 * 24));
+    return daysUntilExpiration <= 7 && daysUntilExpiration >= 0;
+  }
 
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchNotices();
-  }, []);
-
-  // Apply filters, search, and sorting
-  useEffect(() => {
-    let results = [...notices];
-    
-    // Apply type filter
-    if (filterType !== "all") {
-      results = results.filter(notice => notice.type === filterType);
-    }
-    
-    // Apply priority filter
-    if (filterPriority !== "all") {
-      results = results.filter(notice => notice.priority === filterPriority);
-    }
-    
-    // Apply search
-    if (searchTerm) {
-      results = results.filter(
-        notice =>
-          notice.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          notice.body.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          notice.author.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (notice.tags && notice.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())))
-      );
-    }
-    
-    // Apply sorting
-    results.sort((a, b) => {
-      let valA, valB;
-      
-      switch (sortBy) {
-        case "title":
-          valA = a.title.toLowerCase();
-          valB = b.title.toLowerCase();
-          break;
-        case "priority":
-          const priorityOrder = { "High": 1, "Medium": 2, "Low": 3 };
-          valA = priorityOrder[a.priority];
-          valB = priorityOrder[b.priority];
-          break;
-        case "effectiveDate":
-          valA = new Date(a.effectiveDate);
-          valB = new Date(b.effectiveDate);
-          break;
-        case "expirationDate":
-          valA = new Date(a.expirationDate);
-          valB = new Date(b.expirationDate);
-          break;
-        default:
-          valA = new Date(a.effectiveDate);
-          valB = new Date(b.effectiveDate);
-      }
-      
-      if (sortOrder === "asc") {
-        return valA > valB ? 1 : -1;
-      } else {
-        return valA < valB ? 1 : -1;
-      }
-    });
-    
-    setFilteredNotices(results);
-    
-    // Update statistics
-    const active = notices.filter(notice => !isExpired(notice.expirationDate)).length;
-    const expired = notices.length - active;
-    
-    // Count by type
-    const byType = notices.reduce((acc, notice) => {
-      acc[notice.type] = (acc[notice.type] || 0) + 1;
-      return acc;
-    }, {});
-    
-    // Count by priority
-    const byPriority = notices.reduce((acc, notice) => {
-      acc[notice.priority] = (acc[notice.priority] || 0) + 1;
-      return acc;
-    }, {});
-    
-    setNoticeStats({
-      total: notices.length,
-      active,
-      expired,
-      byType,
-      byPriority
-    });
-    
-  }, [notices, searchTerm, sortBy, sortOrder, filterType, filterPriority]);
-
-  // Effect to initialize dark mode based on user preference
-  useEffect(() => {
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    setDarkMode(prefersDark);
-    
-    // Apply dark mode to document
-    if (prefersDark) {
-      document.documentElement.classList.add('dark');
-    }
-  }, []);
-
-  // Toggle dark mode
-  const toggleDarkMode = () => {
-    setDarkMode(!darkMode);
-    if (!darkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  };
-
-  const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setNewNotice((prev) => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value,
-    }));
-  };
-
-  const togglePublishTo = (target) => {
-    setNewNotice((prev) => ({
-      ...prev,
-      [target]: !prev[target]
-    }));
-  };
-
-  // Function to convert file to base64
-  const convertToBase64 = (file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = (error) => reject(error);
-    });
-  };
-
-  // Improved file handling with error handling and feedback
+  // Enhanced file handling functions
   const handleFileChange = async (e) => {
-    if (!e.target.files || e.target.files.length === 0) {
-      return; // No files selected
-    }
-    
-    setIsLoading(true);
-    try {
-      const files = Array.from(e.target.files);
-      
-      // Validate file types and sizes if needed
-    const validFileTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf', 'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
+    const files = e.target.files || e.dataTransfer.files;
+    if (!files || files.length === 0) return;
 
-                             'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-      const maxFileSize = 5 * 1024 * 1024; // 5MB limit
-      
-      // Check each file
-      for (const file of files) {
-        if (maxFileSize && file.size > maxFileSize) {
-          throw new Error(`File ${file.name} exceeds the 5MB size limit.`);
+    setIsLoading(true);
+    setError(null);
+    setUploadProgress(0);
+
+    try {
+      const uploadedFiles = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        
+        // Check file size (10MB limit for admin)
+        if (file.size > 10 * 1024 * 1024) {
+          throw new Error(`File ${file.name} exceeds 10MB size limit`);
         }
-        if (validFileTypes.length && !validFileTypes.includes(file.type)) {
-          throw new Error(`File ${file.name} is not a supported file type.`);
+
+        // More file types allowed for admin
+        const allowedTypes = [
+          'application/pdf', 
+          'image/jpeg', 
+          'image/png', 
+          'application/msword', 
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'application/vnd.ms-excel',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'application/zip',
+          'text/csv'
+        ];
+        
+        if (!allowedTypes.includes(file.type) && !file.type.startsWith('image/')) {
+          throw new Error(`File type ${file.type} not supported`);
         }
-      }
-      
-      // Process files
-      const filePromises = files.map(async (file) => {
+
         try {
-          const base64Data = await convertToBase64(file);
-          return {
-            name: file.name,
-            type: file.type,
-            size: file.size,
-            data: base64Data
-          };
-        } catch (err) {
-          console.error(`Error processing file ${file.name}:`, err);
-          throw new Error(`Failed to process file ${file.name}`);
+          const uploadedFile = await AdminNotificationMng.uploadAttachment(file);
+          if (uploadedFile && uploadedFile.id) {
+            uploadedFiles.push(uploadedFile);
+          }
+        } catch (uploadError) {
+          console.error(`Error uploading file ${file.name}:`, uploadError);
+          throw new Error(`Failed to upload ${file.name}: ${uploadError.message}`);
         }
-      });
-      
-      const fileData = await Promise.all(filePromises);
-      
-      setNewNotice((prev) => ({
-        ...prev,
-        attachments: [...prev.attachments, ...fileData]
-      }));
+        
+        // Update progress
+        setUploadProgress(((i + 1) / files.length) * 100);
+      }
+
+      if (uploadedFiles.length > 0) {
+        setNewNotification(prev => {
+          const currentAttachments = Array.isArray(prev.attachments) ? prev.attachments : [];
+          return {
+            ...prev,
+            attachments: [...currentAttachments, ...uploadedFiles]
+          };
+        });
+
+        setStatusMessage(`Successfully uploaded ${uploadedFiles.length} file(s)`);
+        setTimeout(() => setStatusMessage(""), 3000);
+      } else {
+        throw new Error("No files were uploaded successfully");
+      }
+
     } catch (error) {
-      console.error("Error processing files:", error);
-      setError(error.message || "Failed to process the selected files. Please try again.");
+      console.error("Error uploading files:", error);
+      setError(error.message || "Failed to upload files");
     } finally {
       setIsLoading(false);
-      // Reset the file input so the same file can be selected again if needed
-      e.target.value = null;
+      setUploadProgress(0);
     }
   };
 
-  const removeAttachment = (attachmentToRemove) => {
-    setNewNotice((prev) => ({
-      ...prev,
-      attachments: prev.attachments.filter(attachment => {
-        if (typeof attachment === 'string') {
-          return attachment !== attachmentToRemove;
-        } else {
-          return attachment.name !== attachmentToRemove.name;
-        }
-      })
-    }));
+  const handleRemoveAttachment = async (attachmentId) => {
+    try {
+      setIsLoading(true);
+      
+      // If using numeric index for simple string attachments
+      if (typeof attachmentId === 'number') {
+        setNewNotification(prev => {
+          const currentAttachments = Array.isArray(prev.attachments) ? prev.attachments : [];
+          return {
+            ...prev,
+            attachments: currentAttachments.filter((_, index) => index !== attachmentId)
+          };
+        });
+      } else {
+        // For complex attachment objects with IDs
+        await AdminNotificationMng.deleteAttachment(attachmentId);
+        
+        setNewNotification(prev => {
+          const currentAttachments = Array.isArray(prev.attachments) ? prev.attachments : [];
+          return {
+            ...prev,
+            attachments: currentAttachments.filter(att => 
+              typeof att === 'object' ? att.id !== attachmentId : true
+            )
+          };
+        });
+      }
+      
+      setStatusMessage("Attachment removed successfully");
+      setTimeout(() => setStatusMessage(""), 3000);
+    } catch (error) {
+      console.error("Error removing attachment:", error);
+      setError("Failed to remove attachment: " + (error.message || "Unknown error"));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const viewAttachment = (attachment) => {
-    setCurrentAttachment(attachment);
-    setShowAttachmentModal(true);
-  };
-
-  const closeAttachmentModal = () => {
-    setShowAttachmentModal(false);
-    setCurrentAttachment(null);
-  };
-
+  // Form submission with proper backend integration
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
-    
+
     try {
-      if (editNoticeId) {
-        // Update existing notice
-        const response = await NoticeMng.updateNotice(editNoticeId, {...newNotice, id: editNoticeId});
-        
-        if (response && response.error) {
-          throw new Error(response.error);
-        }
-        
-        // Update local state after successful API call
-        setNotices(prevNotices => 
-          prevNotices.map(notice => 
-            notice.id === editNoticeId ? {...newNotice, id: editNoticeId} : notice
-          )
-        );
-        setEditNoticeId(null);
-      } else {
-        // Create new notice
-        const newId = Date.now().toString();
-        const createdNotice = await NoticeMng.createNotice({...newNotice, id: newId});
-        
-        if (createdNotice && createdNotice.error) {
-          throw new Error(createdNotice.error);
-        }
-        
-        // Update local state with the newly created notice
-        setNotices(prevNotices => [...prevNotices, {...newNotice, id: newId}]);
+      // Validate form
+      if (!newNotification.title.trim()) {
+        throw new Error("Title is required");
       }
-      
-      // Reset form
-      setNewNotice({
+
+      if (!newNotification.body.trim()) {
+        throw new Error("Content is required");
+      }
+
+      // Check if dates are valid
+      if (new Date(newNotification.expirationDate) < new Date(newNotification.effectiveDate)) {
+        throw new Error("Expiration date cannot be earlier than effective date");
+      }
+
+      if (editNotificationId) {
+        // Update existing notification
+        await AdminNotificationMng.updateNotification(editNotificationId, newNotification);
+        setStatusMessage("Notification updated successfully!");
+      } else {
+        // Create new notification
+        await AdminNotificationMng.createNotification(newNotification);
+        setStatusMessage("Notification created successfully!");
+      }
+
+      // Reset form and close it
+      setNewNotification({
         id: Date.now().toString(),
         title: "",
         type: "Academic",
@@ -346,771 +659,1222 @@ function EnhancedNoticePage() {
         attachments: [],
         publishToStudents: false,
         publishToExaminers: false,
-        highlightNotice: false
+        highlightNotice: false,
+        status: "Draft",
+        notifyViaEmail: false,
+        targetAudience: []
       });
       
       setIsFormVisible(false);
-    } catch (err) {
-      console.error("Failed to save notice:", err);
-      setError("Failed to save notice. Please try again.");
+      setEditNotificationId(null);
+
+      // Refresh data from backend
+      refreshData();
+
+      // Clear status message after 3 seconds
+      setTimeout(() => {
+        setStatusMessage("");
+      }, 3000);
+    } catch (error) {
+      console.error("Error submitting notification:", error);
+      setError(error.message || "Failed to save notification");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleEdit = (notice) => {
-    setNewNotice({
-      ...notice,
-      tags: notice.tags || [],
-      attachments: notice.attachments || [],
-      publishToStudents: notice.publishToStudents || notice.publishToFrontend || false,
-      publishToExaminers: notice.publishToExaminers || false,
-      highlightNotice: notice.highlightNotice || false
+  const handleBulkDelete = async () => {
+    if (selectedNotifications.length === 0) return;
+
+    if (window.confirm(`Are you sure you want to delete ${selectedNotifications.length} notifications? This action cannot be undone.`)) {
+      setIsLoading(true);
+      try {
+        await AdminNotificationMng.bulkDeleteNotifications(selectedNotifications);
+        setSelectedNotifications([]);
+        setBulkSelectMode(false);
+        setStatusMessage(`Successfully deleted ${selectedNotifications.length} notifications`);
+        
+        // Refresh data from backend
+        refreshData();
+        
+        setTimeout(() => setStatusMessage(""), 3000);
+      } catch (error) {
+        console.error("Error during bulk delete:", error);
+        setError("Failed to delete selected notifications: " + (error.message || "Unknown error"));
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  };
+
+  const toggleSelectNotification = (id) => {
+    setSelectedNotifications(prevSelected => {
+      if (prevSelected.includes(id)) {
+        return prevSelected.filter(notificationId => notificationId !== id);
+      } else {
+        return [...prevSelected, id];
+      }
     });
-    setEditNoticeId(notice.id);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedNotifications.length === filteredNotifications.length) {
+      // Deselect all
+      setSelectedNotifications([]);
+    } else {
+      // Select all
+      setSelectedNotifications(filteredNotifications.map(notification => notification.id));
+    }
+  };
+
+  // Standard handlers
+  const handleEdit = (notification) => {
+    setEditNotificationId(notification.id);
+    // Make a deep copy to avoid reference issues
+    setNewNotification(JSON.parse(JSON.stringify(notification)));
     setIsFormVisible(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleDelete = async (id) => {
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      const response = await NoticeMng.deleteNotice(id);
-      
-      if (response && response.error) {
-        throw new Error(response.error);
+    if (window.confirm("Are you sure you want to delete this notification?")) {
+      setIsLoading(true);
+      try {
+        await AdminNotificationMng.deleteNotification(id);
+        setStatusMessage("Notification deleted successfully!");
+        
+        // Refresh data from backend
+        refreshData();
+        
+        setTimeout(() => setStatusMessage(""), 3000);
+      } catch (error) {
+        console.error("Error deleting notification:", error);
+        setError("Failed to delete notification: " + (error.message || "Unknown error"));
+      } finally {
+        setIsLoading(false);
       }
-      
-      // Update local state after successful API call
-      setNotices(prevNotices => prevNotices.filter(notice => notice.id !== id));
-      setShowDeleteModal(false);
-      setNoticeToDelete(null);
-    } catch (err) {
-      console.error("Failed to delete notice:", err);
-      setError("Failed to delete notice. Please try again.");
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  const confirmDelete = (notice) => {
-    setNoticeToDelete(notice);
-    setShowDeleteModal(true);
+  // Drag and drop handlers
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    handleFileChange(e);
+  };
+
+  const getPriorityColor = (priority) => {
+    switch (priority) {
+      case 'High':
+        return 'bg-red-100 text-red-800';
+      case 'Medium':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'Low':
+        return 'bg-green-100 text-green-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getTypeColor = (type) => {
+    switch (type) {
+      case 'Academic':
+        return 'bg-blue-100 text-blue-800';
+      case 'Administrative':
+        return 'bg-purple-100 text-purple-800';
+      case 'Event':
+        return 'bg-emerald-100 text-emerald-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
   };
   
-  const cancelDelete = () => {
-    setShowDeleteModal(false);
-    setNoticeToDelete(null);
-  };
-
-  // Function to get priority badge color
-  const getPriorityClasses = (priority) => {
-    switch(priority) {
-      case 'High':
-        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-      case 'Medium':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
-      case 'Low':
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+  const getStatusColor = (status) => {
+    const normalizedStatus = normalizeStatus(status);
+    
+    switch (normalizedStatus) {
+      case 'Published':
+        return 'bg-green-100 text-green-800';
+      case 'Draft':
+        return 'bg-gray-100 text-gray-800';
+      case 'Archived':
+        return 'bg-amber-100 text-amber-800';
+      case 'Pending':
+        return 'bg-blue-100 text-blue-800';
       default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
+        return 'bg-gray-100 text-gray-800';
     }
   };
 
-  // Function to get type badge color
-  const getTypeClasses = (type) => {
-    switch(type) {
-      case 'Academic':
-        return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200';
-      case 'Technical':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
-      case 'Workshop':
-        return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
-      case 'Schedule':
-        return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200';
-      case 'Deadline':
-        return 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200';
-      case 'Venue':
-        return 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200';
-      case 'Faculty':
-        return 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200';
-      case 'Emergency':
-        return 'bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-200';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
-    }
+  // Calendar view functions
+  const getDaysInMonth = (year, month) => {
+    return new Date(year, month + 1, 0).getDate();
   };
 
-  const formatDateForDisplay = (dateString) => {
-    const options = { year: 'numeric', month: 'short', day: 'numeric' };
-    return new Date(dateString).toLocaleDateString(undefined, options);
+  const getFirstDayOfMonth = (year, month) => {
+    return new Date(year, month, 1).getDay();
   };
 
-  // Helper to determine if attachment is a base64 object or a simple string
-  const isAttachmentObject = (attachment) => {
-    return typeof attachment === 'object' && attachment !== null && attachment.data;
-  };
-
-  // Helper to get attachment name
-  const getAttachmentName = (attachment) => {
-    return isAttachmentObject(attachment) ? attachment.name : attachment;
-  };
-
-  // Helper to get attachment type
-  const getAttachmentType = (attachment) => {
-    if (isAttachmentObject(attachment)) {
-      return attachment.type;
+  const navigateMonth = (direction) => {
+    const newMonth = new Date(currentMonth);
+    if (direction === 'prev') {
+      newMonth.setMonth(newMonth.getMonth() - 1);
     } else {
-      const ext = attachment.split('.').pop().toLowerCase();
-      if (['jpg', 'jpeg', 'png', 'gif'].includes(ext)) return 'image/' + ext;
-      if (ext === 'pdf') return 'application/pdf';
-      if (['doc', 'docx'].includes(ext)) return 'application/msword';
-      return 'application/octet-stream';
+      newMonth.setMonth(newMonth.getMonth() + 1);
+    }
+    setCurrentMonth(newMonth);
+  };
+
+  const selectDate = (date) => {
+    const newDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), date);
+    setSelectedDate(newDate);
+  };
+
+  const getNotificationsForDate = (date) => {
+    // Format the selected date for comparison
+    const dateStr = formatDate(date);
+    
+    return filteredNotifications.filter(notification => {
+      const effectiveDate = notification.effectiveDate;
+      const expirationDate = notification.expirationDate;
+      
+      // Check if the notification is active on this date
+      return dateStr >= effectiveDate && dateStr <= expirationDate;
+    });
+  };
+
+  // Check if a date has notifications
+  const hasNotificationsOnDate = (date) => {
+    try {
+      const fullDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), date);
+      return getNotificationsForDate(fullDate).length > 0;
+    } catch (error) {
+      console.error("Error checking notifications for date:", error);
+      return false;
     }
   };
 
-  // Helper to determine if attachment is an image
-  const isImageAttachment = (attachment) => {
-    const type = getAttachmentType(attachment);
-    return type.startsWith('image/');
+  const renderCalendar = () => {
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    const daysInMonth = getDaysInMonth(year, month);
+    const firstDayOfMonth = getFirstDayOfMonth(year, month);
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    
+    // Prepare calendar days
+    const calendarDays = [];
+    
+    // Add empty cells for days before the first day of the month
+    for (let i = 0; i < firstDayOfMonth; i++) {
+      calendarDays.push(<div key={`empty-${i}`} className="h-12 border border-gray-200 bg-gray-50"></div>);
+    }
+    
+    // Add cells for each day of the month
+    for (let day = 1; day <= daysInMonth; day++) {
+      const isToday = new Date().getDate() === day && 
+                       new Date().getMonth() === month && 
+                       new Date().getFullYear() === year;
+      const isSelected = selectedDate.getDate() === day && 
+                        selectedDate.getMonth() === month && 
+                        selectedDate.getFullYear() === year;
+      const hasNotifications = hasNotificationsOnDate(day);
+      
+      calendarDays.push(
+        <div 
+          key={`day-${day}`} 
+          className={`h-12 border border-gray-200 p-1 relative cursor-pointer
+                    ${isToday ? 'bg-blue-50' : ''}
+                    ${isSelected ? 'ring-2 ring-blue-500' : ''}
+                    ${hasNotifications ? 'font-bold' : ''}`}
+          onClick={() => selectDate(day)}
+        >
+          <div className="flex justify-between">
+            <span>{day}</span>
+            {hasNotifications && <span className="h-2 w-2 rounded-full bg-blue-600"></span>}
+          </div>
+        </div>
+      );
+    }
+    
+    // Add extra days to fill the last row if needed (for aesthetics)
+    const totalCells = calendarDays.length;
+    const totalRows = Math.ceil(totalCells / 7);
+    const totalCellsNeeded = totalRows * 7;
+    
+    for (let i = totalCells; i < totalCellsNeeded; i++) {
+      calendarDays.push(<div key={`extra-${i}`} className="h-12 border border-gray-200 bg-gray-50"></div>);
+    }
+    
+    // Get notifications for the selected date
+    const selectedDateNotifications = getNotificationsForDate(selectedDate);
+    
+    return (
+      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <div className="p-4">
+          {/* Calendar header */}
+          <div className="flex justify-between items-center mb-4">
+            <button 
+              onClick={() => navigateMonth('prev')}
+              className="p-2 rounded-md hover:bg-gray-100"
+            >
+              &larr;
+            </button>
+            <h2 className="text-xl font-semibold">{monthNames[month]} {year}</h2>
+            <button 
+              onClick={() => navigateMonth('next')}
+              className="p-2 rounded-md hover:bg-gray-100"
+            >
+              &rarr;
+            </button>
+          </div>
+          
+          {/* Weekday headers */}
+          <div className="grid grid-cols-7 gap-0 mb-1">
+            {dayNames.map(day => (
+              <div key={day} className="text-center text-sm font-medium text-gray-500">
+                {day}
+              </div>
+            ))}
+          </div>
+          
+          {/* Calendar grid */}
+          <div className="grid grid-cols-7 gap-0 mb-4">
+            {calendarDays}
+          </div>
+          
+          {/* Selected date notifications */}
+          <div className="mt-4 border-t pt-4">
+            <h3 className="text-lg font-medium mb-2">
+              Notifications for {formatDate(selectedDate)}
+            </h3>
+            
+            {selectedDateNotifications.length === 0 ? (
+              <p className="text-gray-500">No notifications for this date.</p>
+            ) : (
+              <div className="space-y-3">
+                {selectedDateNotifications.map(notification => (
+                  <div key={notification.id} className="p-3 border rounded-md hover:bg-gray-50">
+                    <div className="flex justify-between">
+                      <h4 className="font-medium">{notification.title}</h4>
+                      <div className="flex space-x-1">
+                        <span className={`px-2 py-0.5 text-xs rounded-full ${getTypeColor(notification.type)}`}>
+                          {notification.type}
+                        </span>
+                        <span className={`px-2 py-0.5 text-xs rounded-full ${getPriorityColor(notification.priority)}`}>
+                          {notification.priority}
+                        </span>
+                        <span className={`px-2 py-0.5 text-xs rounded-full ${getStatusColor(notification.status)}`}>
+                          {normalizeStatus(notification.status)}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <p className="text-sm text-gray-600 mt-1 line-clamp-2">{notification.body}</p>
+                    
+                    {/* Display attachments directly */}
+                    {notification.attachments && notification.attachments.length > 0 && (
+                      <AttachmentsList attachments={notification.attachments} />
+                    )}
+                    
+                    <div className="mt-2 flex justify-between text-xs text-gray-500">
+                      <span>Author: {notification.author || 'N/A'}</span>
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEdit(notification);
+                          }}
+                          className="text-blue-600 hover:text-blue-800"
+                        >
+                          Edit
+                        </button>
+                        
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(notification.id);
+                          }}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
-    <div className={`min-h-screen transition duration-300 ${darkMode ? 'dark:bg-gray-900 dark:text-white' : 'bg-gray-50 text-gray-900'}`} role="main">
-
-      {/* Admin Header with branding */}
-      <div className="bg-gradient-to-r from-indigo-700 to-purple-700 dark:from-indigo-900 dark:to-purple-900 text-white py-3 shadow-lg">
-        <div className="container mx-auto px-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center space-x-2">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-              <div className="text-lg font-semibold">Exam Scheduling System</div>
-            </div>
-           
-          </div>
-        </div>
-      </div>
-
-      {/* Main header with title */}
-      <header className="bg-white dark:bg-gray-800 shadow-md p-4 sticky top-0 z-10 border-b border-gray-200 dark:border-gray-700">
-        <div className="container mx-auto flex justify-between items-center">
-          <div className="flex items-center space-x-3">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-indigo-600 dark:text-indigo-400" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-            </svg>
-            <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400">Notice Management</h1>
-          </div>
-          <div className="flex items-center space-x-3">
-            <button
-              onClick={toggleDarkMode}
-              className="p-2 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-gray-700 dark:text-gray-200 shadow-sm"
-              aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
-            >
-              {darkMode ? (
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="5"></circle>
-                  <line x1="12" y1="1" x2="12" y2="3"></line>
-                  <line x1="12" y1="21" x2="12" y2="23"></line>
-                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-                  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-                  <line x1="1" y1="12" x2="3" y2="12"></line>
-                  <line x1="21" y1="12" x2="23" y2="12"></line>
-                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-                  <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-                </svg>
-              ) : (
-            filteredNotices.map((notice) => (
-              <div 
-                key={notice.id} 
-                className={`bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-300 hover:shadow-xl hover:scale-[1.01] ${notice.highlightNotice ? 'border-2 border-yellow-400 dark:border-yellow-600' : ''}`}
-              >
-                <div className="p-6">
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
-                      {notice.title}
-                      {notice.highlightNotice && (
-                        <span className="ml-2 text-yellow-500 dark:text-yellow-400">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                          </svg>
-                        </span>
-                      )}
-
-      {/* Attachment View Modal */}
-      {showAttachmentModal && (
-        <div className="fixed inset-0 z-50 overflow-auto bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-3xl w-full mx-4 overflow-hidden transform transition-all animate-fadeIn">
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
-                </svg>
-                {getAttachmentName(currentAttachment)}
-              </h3>
-              <button
-                onClick={closeAttachmentModal}
-                className="text-gray-400 hover:text-gray-500 focus:outline-none"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="p-6">
-              <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-4 min-h-[300px] flex items-center justify-center">
-                {/* Display image if attachment is an image with base64 data */}
-                {isAttachmentObject(currentAttachment) && isImageAttachment(currentAttachment) ? (
-                  <div className="text-center">
-                    <img 
-                      src={currentAttachment.data} 
-                      alt={currentAttachment.name}
-                      className="max-w-full max-h-96 mb-4 rounded-lg shadow-md"
-                    />
-                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mt-2">{currentAttachment.name}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      {Math.round(currentAttachment.size / 1024)} KB • {currentAttachment.type.split('/')[1].toUpperCase()} Image
-                    </p>
-                    <a 
-                      href={currentAttachment.data} 
-                      download={currentAttachment.name}
-                      className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors inline-block"
-                    >
-                      Download Image
-                    </a>
-                  </div>
-                ) : getAttachmentType(currentAttachment).includes('pdf') ? (
-                  <div className="text-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-20 w-20 mx-auto text-red-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14 4.5V9a1 1 0 001 1h4.5" />
-                    </svg>
-                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{getAttachmentName(currentAttachment)}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      {isAttachmentObject(currentAttachment) ? `${Math.round(currentAttachment.size / 1024)} KB • ` : ''}
-                      PDF Document
-                    </p>
-                    {isAttachmentObject(currentAttachment) && (
-                      <a 
-                        href={currentAttachment.data} 
-                        download={currentAttachment.name}
-                        className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors inline-block"
-                      >
-                        Download PDF
-                      </a>
-                    )}
-                  </div>
-                ) : getAttachmentType(currentAttachment).includes('word') || getAttachmentName(currentAttachment).match(/\.(doc|docx)$/i) ? (
-                  <div className="text-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-20 w-20 mx-auto text-blue-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14 4.5V9a1 1 0 001 1h4.5" />
-                    </svg>
-                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{getAttachmentName(currentAttachment)}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      {isAttachmentObject(currentAttachment) ? `${Math.round(currentAttachment.size / 1024)} KB • ` : ''}
-                      Word Document
-                    </p>
-                    {isAttachmentObject(currentAttachment) && (
-                      <a 
-                        href={currentAttachment.data} 
-                        download={currentAttachment.name}
-                        className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors inline-block"
-                      >
-                        Download Document
-                      </a>
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-20 w-20 mx-auto text-gray-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14 4.5V9a1 1 0 001 1h4.5" />
-                    </svg>
-                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{getAttachmentName(currentAttachment)}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      {isAttachmentObject(currentAttachment) ? `${Math.round(currentAttachment.size / 1024)} KB • ` : ''}
-                      File
-                    </p>
-                    {isAttachmentObject(currentAttachment) && (
-                      <a 
-                        href={currentAttachment.data} 
-                        download={currentAttachment.name}
-                        className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors inline-block"
-                      >
-                        Download File
-                      </a>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="bg-gray-50 dark:bg-gray-700 px-6 py-3 flex justify-end">
-              <button
-                onClick={closeAttachmentModal}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 transition-colors"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-                    </h3>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPriorityClasses(notice.priority)}`}>
-                      {notice.priority}
-                    </span>
-                  </div>
-                  
-                  <div className="flex flex-wrap items-center text-sm text-gray-500 dark:text-gray-400 mb-3 gap-2">
-                    <span className="font-medium flex items-center">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                      </svg>
-                      {notice.author}
-                    </span>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTypeClasses(notice.type)}`}>
-                      {notice.type}
-                    </span>
-                    {(notice.publishToStudents || notice.publishToExaminers || notice.publishToFrontend) && (
-                      <div className="flex space-x-1">
-                        {(notice.publishToStudents || notice.publishToFrontend) && (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                            Students
-                          </span>
-                        )}
-                        {notice.publishToExaminers && (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                            Examiners
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  
-                  <p className="text-gray-700 dark:text-gray-300 mb-4 whitespace-pre-line">{notice.body}</p>
-                  
-                  {/* Attachments */}
-                  {notice.attachments && notice.attachments.length > 0 && (
-                    <div className="mb-4">
-                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Attachments:</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {notice.attachments.map((attachment, index) => (
-                          <div 
-                            key={index} 
-                            className="group flex items-center bg-gray-100 dark:bg-gray-700 rounded-md px-3 py-1.5 text-sm hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors cursor-pointer"
-                            onClick={() => viewAttachment(attachment)}
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                            <span>{isAttachmentObject(attachment) ? attachment.name : attachment}</span>
-                            <span className="ml-1 text-indigo-600 dark:text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity">View</span>
-                          </div>
-                        ))
-          )}
-        </div>
-      </div>
-
-      {/* Footer */}
-      <footer className="bg-white dark:bg-gray-800 shadow-md p-4 mt-8 border-t border-gray-200 dark:border-gray-700">
-        <div className="container mx-auto text-center text-sm text-gray-500 dark:text-gray-400">
-          <p>&copy; 2025 Exam Scheduling System - Admin Portal</p>
-        </div>
-      </footer>
-
-      {/* Delete Confirmation Modal */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 z-50 overflow-auto bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4 overflow-hidden transform transition-all animate-fadeIn">
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white">Confirm Deletion</h3>
-            </div>
-            <div className="p-6">
-              <p className="text-gray-700 dark:text-gray-300 mb-4">
-                Are you sure you want to delete the notice <span className="font-medium">"{noticeToDelete?.title}"</span>? This action cannot be undone.
-              </p>
-              <div className="flex justify-end space-x-3">
+    <Layout className="min-h-screen">
+      <Sidebar />
+      <Layout className="bg-gray-100">
+        <Content className="p-4">
+          <div className="max-w-7xl mx-auto p-6 bg-white rounded-lg shadow-md">
+            <div className="flex justify-between items-center mb-6 border-b pb-4">
+              <h1 className="text-3xl font-bold text-gray-800">Admin Notification Management</h1>
+              <div className="flex items-center space-x-2">
                 <button
-                  onClick={cancelDelete}
-                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400"
+                  onClick={() => setViewMode("list")}
+                  className={`p-2 rounded-md ${viewMode === "list" ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}`}
+                  title="List View"
                 >
-                  Cancel
+                  📋
                 </button>
                 <button
-                  onClick={() => handleDelete(noticeToDelete.id)}
-                  disabled={isLoading}
-                  className={`px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                  onClick={() => setViewMode("grid")}
+                  className={`p-2 rounded-md ${viewMode === "grid" ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}`}
+                  title="Grid View"
                 >
-                  {isLoading ? 'Deleting...' : 'Delete'}
+                  📊
                 </button>
+                <button
+                  onClick={() => setViewMode("calendar")}
+                  className={`p-2 rounded-md ${viewMode === "calendar" ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}`}
+                  title="Calendar View"
+                >
+                  📅
+                </button>
+         
               </div>
             </div>
-          </div>
-        </div>
-      )}}
-                      </div>
+
+            {/* Admin Dashboard Stats */}
+            {stats && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="bg-white rounded-lg shadow p-4 border-l-4 border-blue-500">
+                  <h3 className="text-sm font-medium text-gray-500">Total Notifications</h3>
+                  <p className="text-2xl font-bold text-gray-800">{stats.totalNotifications}</p>
+                </div>
+                <div className="bg-white rounded-lg shadow p-4 border-l-4 border-green-500">
+                  <h3 className="text-sm font-medium text-gray-500">Active Notifications</h3>
+                  <p className="text-2xl font-bold text-gray-800">{stats.activeNotifications}</p>
+                </div>
+                <div className="bg-white rounded-lg shadow p-4 border-l-4 border-yellow-500">
+                  <h3 className="text-sm font-medium text-gray-500">Expiring This Week</h3>
+                  <p className="text-2xl font-bold text-gray-800">{stats.expiringThisWeek}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Status Message */}
+            {statusMessage && (
+              <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md text-green-700 flex items-center">
+                <span className="mr-2">✅</span>
+                {statusMessage}
+              </div>
+            )}
+
+            {/* Error Message */}
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-700 flex items-center">
+                <span className="mr-2">❌</span>
+                {error}
+              </div>
+            )}
+
+            {/* Notification Form */}
+            {isFormVisible && (
+              <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+                <h2 className="text-xl font-semibold mb-4">
+                  {editNotificationId ? "Edit Notification" : "Create New Notification"}
+                </h2>
+                
+                <form onSubmit={handleSubmit} className="space-y-5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                      <input
+                        type="text"
+                        name="title"
+                        value={newNotification.title}
+                        onChange={(e) => setNewNotification({...newNotification, title: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        required
+                      />
                     </div>
-                  )}
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Author</label>
+                      <input
+                        type="text"
+                        name="author"
+                        value={newNotification.author}
+                        onChange={(e) => setNewNotification({...newNotification, author: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                      <select
+                        name="type"
+                        value={newNotification.type}
+                        onChange={(e) => setNewNotification({...newNotification, type: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="Academic">Academic</option>
+                        <option value="Administrative">Administrative</option>
+                        <option value="Event">Event</option>
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                      <select
+                        name="priority"
+                        value={newNotification.priority}
+                        onChange={(e) => setNewNotification({...newNotification, priority: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="Low">Low</option>
+                        <option value="Medium">Medium</option>
+                        <option value="High">High</option>
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                      <select
+                        name="status"
+                        value={newNotification.status}
+                        onChange={(e) => setNewNotification({...newNotification, status: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="Draft">Draft</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Published">Published</option>
+                        <option value="Archived">Archived</option>
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Effective Date</label>
+                      <input
+                        type="date"
+                        name="effectiveDate"
+                        value={newNotification.effectiveDate}
+                        onChange={(e) => setNewNotification({...newNotification, effectiveDate: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Expiration Date</label>
+                      <input
+                        type="date"
+                        name="expirationDate"
+                        value={newNotification.expirationDate}
+                        onChange={(e) => setNewNotification({...newNotification, expirationDate: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
                   
-                  {/* Tags */}
-                  {notice.tags && notice.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mb-3">
-                      {notice.tags.map((tag, index) => (
-                        <span key={index} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">
-                          #{tag}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Content</label>
+                    <textarea
+                      name="body"
+                      value={newNotification.body}
+                      onChange={(e) => setNewNotification({...newNotification, body: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      rows="6"
+                      required
+                    ></textarea>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Tags</label>
+                    <div className="flex items-center">
+                      <input
+                        type="text"
+                        value={tagInput}
+                        onChange={(e) => setTagInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && tagInput.trim()) {
+                            e.preventDefault();
+                            const currentTags = Array.isArray(newNotification.tags) ? newNotification.tags : [];
+                            if (!currentTags.includes(tagInput.trim())) {
+                              setNewNotification({
+                                ...newNotification,
+                                tags: [...currentTags, tagInput.trim()]
+                              });
+                            }
+                            setTagInput('');
+                          }
+                        }}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Add a tag and press Enter"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (tagInput.trim()) {
+                            const currentTags = Array.isArray(newNotification.tags) ? newNotification.tags : [];
+                            if (!currentTags.includes(tagInput.trim())) {
+                              setNewNotification({
+                                ...newNotification,
+                                tags: [...currentTags, tagInput.trim()]
+                              });
+                            }
+                            setTagInput('');
+                          }
+                        }}
+                        className="px-4 py-2 bg-blue-500 text-white rounded-r-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        Add
+                      </button>
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {Array.isArray(newNotification.tags) && newNotification.tags.map((tag, index) => (
+                        <span 
+                          key={index} 
+                          className="px-2 py-1 bg-blue-100 text-blue-800 rounded-md flex items-center"
+                        >
+                          {tag}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setNewNotification({
+                                ...newNotification,
+                                tags: newNotification.tags.filter((_, i) => i !== index)
+                              });
+                            }}
+                            className="ml-1 text-blue-600 hover:text-blue-800 focus:outline-none"
+                          >
+                            ×
+                          </button>
                         </span>
                       ))}
                     </div>
-                  )}
+                  </div>
                   
-                  <div className="flex justify-between items-center mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
-                    <div className="text-sm text-gray-500 dark:text-gray-400 flex flex-wrap gap-2">
-                      <span className="flex items-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        Effective: {formatDateForDisplay(notice.effectiveDate)}
-                      </span>
-                      <span className="flex items-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        Expires: {formatDateForDisplay(notice.expirationDate)}
-                      </span>
+                  {/* File Upload */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Attachments</label>
+                    <div 
+                      className={`border-2 border-dashed rounded-md p-6 flex flex-col items-center justify-center cursor-pointer ${
+                        isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
+                      }`}
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDrop}
+                      onClick={() => document.getElementById("file-upload").click()}
+                    >
+                      <input
+                        id="file-upload"
+                        type="file"
+                        multiple
+                        className="hidden"
+                        onChange={handleFileChange}
+                      />
+                      <span className="text-3xl mb-2">📂</span>
+                      <p className="text-sm text-gray-600 text-center">
+                        Drag & drop files here, or click to select files
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        PDF, Word, Excel, Images, CSV (Max 10MB)
+                      </p>
                     </div>
-                    <div className="ml-4">
-                      {isExpired(notice.expirationDate) ? (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
-                          Expired
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                          Active
-                        </span>
-                      )}
+                    
+                    {/* Upload progress */}
+                    {uploadProgress > 0 && (
+                      <div className="mt-2">
+                        <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-blue-500" 
+                            style={{ width: `${uploadProgress}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Attachment list */}
+                    {Array.isArray(newNotification.attachments) && newNotification.attachments.length > 0 && (
+                      <div className="mt-4 space-y-2">
+                        <p className="text-sm font-medium text-gray-700">Uploaded Files:</p>
+                        {Array.isArray(newNotification.attachments) && newNotification.attachments.map((attachment, index) => (
+                          <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-md">
+                            <div className="flex items-center">
+                              <span className="mr-2">{getAttachmentIcon(attachment)}</span>
+                              <span className="text-sm">{typeof attachment === 'object' ? attachment.filename : attachment}</span>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              {typeof attachment === 'object' && attachment.displayUrl && (
+                                <>
+                                  <a 
+                                    href={attachment.displayUrl} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer" 
+                                    className="text-blue-600 hover:text-blue-800 focus:outline-none"
+                                  >
+                                    View
+                                  </a>
+                                  <button
+                                    type="button"
+                                    onClick={() => downloadAttachment(attachment)}
+                                    className="text-green-600 hover:text-green-800 focus:outline-none"
+                                  >
+                                    Download
+                                  </button>
+                                </>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveAttachment(typeof attachment === 'object' ? attachment.id : index)}
+                                className="text-red-600 hover:text-red-800 focus:outline-none"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Advanced options */}
+                  <div className="space-y-3 pt-3 border-t border-gray-200">
+                    <h3 className="text-sm font-medium text-gray-700">Advanced Options</h3>
+                    
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        id="publishToStudents"
+                        checked={newNotification.publishToStudents}
+                        onChange={(e) => setNewNotification({...newNotification, publishToStudents: e.target.checked})}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="publishToStudents" className="text-sm text-gray-700">
+                        Publish to Students
+                      </label>
+                    </div>
+                    
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        id="publishToExaminers"
+                        checked={newNotification.publishToExaminers}
+                        onChange={(e) => setNewNotification({...newNotification, publishToExaminers: e.target.checked})}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="publishToExaminers" className="text-sm text-gray-700">
+                        Publish to Examiners
+                      </label>
+                    </div>
+                    
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        id="highlightNotice"
+                        checked={newNotification.highlightNotice}
+                        onChange={(e) => setNewNotification({...newNotification, highlightNotice: e.target.checked})}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="highlightNotice" className="text-sm text-gray-700">
+                        Highlight Notification
+                      </label>
+                    </div>
+                    
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        id="notifyViaEmail"
+                        checked={newNotification.notifyViaEmail}
+                        onChange={(e) => setNewNotification({...newNotification, notifyViaEmail: e.target.checked})}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="notifyViaEmail" className="text-sm text-gray-700">
+                        Send Email Notification
+                      </label>
                     </div>
                   </div>
-                </div>
-                <div className="bg-gray-50 dark:bg-gray-700 px-6 py-3 flex justify-end space-x-3">
-                  <button 
-                    onClick={() => handleEdit(notice)}
-                    className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-gray-800 transition-colors flex items-center shadow-sm"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                    Edit
-                  </button>
-                  <button 
-                    onClick={() => confirmDelete(notice)}
-                    className="px-3 py-1.5 border border-transparent rounded text-sm font-medium text-white bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 dark:focus:ring-offset-gray-800 transition-colors flex items-center shadow-sm"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                    Delete
-                  </button>
-                </div>
+                  
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsFormVisible(false);
+                        setEditNotificationId(null);
+                        setNewNotification({
+                          id: Date.now().toString(),
+                          title: "",
+                          type: "Academic",
+                          priority: "Medium",
+                          body: "",
+                          author: "",
+                          effectiveDate: formatDate(new Date()),
+                          expirationDate: formatDate(addDays(new Date(), 30)),
+                          tags: [],
+                          attachments: [],
+                          publishToStudents: false,
+                          publishToExaminers: false,
+                          highlightNotice: false,
+                          status: "Draft",
+                          notifyViaEmail: false,
+                          targetAudience: []
+                        });
+                      }}
+                      className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      disabled={isLoading}
+                    >
+                      {isLoading ? 'Saving...' : editNotificationId ? 'Update Notification' : 'Create Notification'}
+                    </button>
+                  </div>
+                </form>
               </div>
-            ))
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-                </svg>
-                                )}
+            )}
+
+            {/* Enhanced Admin Control Panel */}
+            <div className="bg-gray-50 rounded-lg p-5 mb-6 shadow-sm">
+              <div className="flex flex-wrap gap-4 items-center justify-between">
+                {/* Search with advanced options */}
+                <div className="flex-1 min-w-[300px]">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Search notifications by title, content, author, tags or ID..."
+                      className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                    <span className="absolute left-3 top-2.5 text-gray-400">
+                      🔍
+                    </span>
+                  </div>
+                </div>
+
+                {/* Admin Filters */}
+                <div className="flex flex-wrap gap-3">
+                  <select
+                    className="px-3 py-2 border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={filterType}
+                    onChange={(e) => setFilterType(e.target.value)}
+                  >
+                    <option value="all">All Types</option>
+                    <option value="Academic">Academic</option>
+                    <option value="Administrative">Administrative</option>
+                    <option value="Event">Event</option>
+                  </select>
+                  
+                  <select
+                    className="px-3 py-2 border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={filterPriority}
+                    onChange={(e) => setFilterPriority(e.target.value)}
+                  >
+                    <option value="all">All Priorities</option>
+                    <option value="High">High</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Low">Low</option>
+                  </select>
+                  
+                  <select
+                    className="px-3 py-2 border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value)}
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="Draft">Draft</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Published">Published</option>
+                    <option value="Archived">Archived</option>
+                  </select>
+                  
+                  <select
+                    className="px-3 py-2 border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={`${sortBy}-${sortOrder}`}
+                    onChange={(e) => {
+                      const [newSortBy, newSortOrder] = e.target.value.split('-');
+                      setSortBy(newSortBy);
+                      setSortOrder(newSortOrder);
+                    }}
+                  >
+                    <option value="effectiveDate-desc">Newest First</option>
+                    <option value="effectiveDate-asc">Oldest First</option>
+                    <option value="priority-desc">Priority (High-Low)</option>
+                    <option value="priority-asc">Priority (Low-High)</option>
+                    <option value="viewCount-desc">Most Viewed</option>
+                  </select>
                 </div>
                 
-                {/* Publishing Options */}
-                <div className="form-group md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                  <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Publishing Options</h3>
-                    </div>
-                    <div className="mt-3 space-y-3">
-                      <div className="flex items-center">
-                        <button
-                          type="button"
-                          onClick={() => togglePublishTo('publishToStudents')}
-                          className={`relative inline-flex items-center px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-gray-800 ${
-                            newNotice.publishToStudents
-                              ? 'bg-blue-600 text-white hover:bg-blue-700'
-                              : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-                          }`}
-                        >
-                          {newNotice.publishToStudents ? (
-                            <span className="flex items-center">
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                              </svg>
-                              Published to Students
-                            </span>
-                          ) : (
-                            "Publish to Students"
+                {/* Admin Action Buttons */}
+                <div className="flex gap-2">
+                  {bulkSelectMode ? (
+                    <>
+                      <button
+                        onClick={toggleSelectAll}
+                        className={`px-3 py-2 text-sm font-medium rounded-md ${
+                          selectedNotifications.length === filteredNotifications.length
+                            ? 'bg-blue-200 text-blue-800'
+                            : 'bg-gray-200 text-gray-800'
+                        }`}
+                      >
+                        {selectedNotifications.length === filteredNotifications.length
+                          ? 'Deselect All'
+                          : 'Select All'}
+                      </button>
+                      <button
+                        onClick={handleBulkDelete}
+                        disabled={selectedNotifications.length === 0}
+                        className={`px-3 py-2 text-sm font-medium rounded-md ${
+                          selectedNotifications.length > 0
+                            ? 'bg-red-100 text-red-800 hover:bg-red-200'
+                            : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        }`}
+                      >
+                        Delete Selected ({selectedNotifications.length})
+                      </button>
+                      <button
+                        onClick={() => {
+                          setBulkSelectMode(false);
+                          setSelectedNotifications([]);
+                        }}
+                        className="px-3 py-2 text-sm font-medium bg-gray-200 text-gray-800 rounded-md"
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => setBulkSelectMode(true)}
+                        className="px-3 py-2 text-sm font-medium bg-gray-200 text-gray-800 rounded-md"
+                        title="Bulk Actions"
+                      >
+                        Bulk Actions
+                      </button>
+                      <button
+                        onClick={() => {
+                          setIsFormVisible(!isFormVisible);
+                          if (!isFormVisible) {
+                            setEditNotificationId(null);
+                            setNewNotification({
+                              id: Date.now().toString(),
+                              title: "",
+                              type: "Academic",
+                              priority: "Medium",
+                              body: "",
+                              author: "",
+                              effectiveDate: formatDate(new Date()),
+                              expirationDate: formatDate(addDays(new Date(), 30)),
+                              tags: [],
+                              attachments: [],
+                              publishToStudents: false,
+                              publishToExaminers: false,
+                              highlightNotice: false,
+                              status: "Draft",
+                              notifyViaEmail: false,
+                              targetAudience: []
+                            });
+                          }
+                        }}
+                        className="px-3 py-2 text-sm font-medium bg-blue-500 text-white rounded-md hover:bg-blue-600"
+                      >
+                        {isFormVisible ? "Cancel" : "Create Notification"}
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Notification List View */}
+            {viewMode === "list" && (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      {bulkSelectMode && (
+                        <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <input
+                            type="checkbox"
+                            checked={selectedNotifications.length === filteredNotifications.length && filteredNotifications.length > 0}
+                            onChange={toggleSelectAll}
+                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                          />
+                        </th>
+                      )}
+                      <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Title
+                      </th>
+                      <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Type
+                      </th>
+                      <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Priority
+                      </th>
+                      <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Dates
+                      </th>
+                      <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {isLoading ? (
+                      <tr>
+                        <td colSpan={bulkSelectMode ? 7 : 6} className="px-3 py-4 text-center text-sm text-gray-500">
+                          Loading notifications...
+                        </td>
+                      </tr>
+                    ) : filteredNotifications.length === 0 ? (
+                      <tr>
+                        <td colSpan={bulkSelectMode ? 7 : 6} className="px-3 py-4 text-center text-sm text-gray-500">
+                          No notifications found.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredNotifications.map((notification) => (
+                        <tr key={notification.id} className={`${isExpired(notification.expirationDate) ? 'bg-gray-50' : ''} group hover:bg-gray-50`}>
+                          {bulkSelectMode && (
+                            <td className="px-3 py-4 whitespace-nowrap">
+                              <input
+                                type="checkbox"
+                                checked={selectedNotifications.includes(notification.id)}
+                                onChange={() => toggleSelectNotification(notification.id)}
+                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                              />
+                            </td>
                           )}
-                        </button>
-                      </div>
-                      
-                      <div className="flex items-center">
-                        <button
-                          type="button"
-                          onClick={() => togglePublishTo('publishToExaminers')}
-                          className={`relative inline-flex items-center px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-gray-800 ${
-                            newNotice.publishToExaminers
-                              ? 'bg-purple-600 text-white hover:bg-purple-700'
-                              : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-                          }`}
-                        >
-                          {newNotice.publishToExaminers ? (
-                            <span className="flex items-center">
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                              </svg>
-                              Published to Examiners
+                          <td className="px-3 py-4">
+                            <div className="flex flex-col">
+                              <div className="text-sm font-medium text-gray-900">
+                                {notification.title}
+                                {notification.highlightNotice && (
+                                  <span className="ml-2 px-1.5 py-0.5 text-xs rounded-full bg-amber-100 text-amber-800">
+                                    ⭐
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                ID: {notification.id ? notification.id.slice(0, 8) : 'N/A'}... | Author: {notification.author || 'N/A'}
+                              </div>
+                              {notification.tags && Array.isArray(notification.tags) && notification.tags.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {notification.tags.slice(0, 3).map((tag, idx) => (
+                                    <span key={idx} className="px-1.5 py-0.5 text-xs rounded-full bg-blue-100 text-blue-800">
+                                      {tag}
+                                    </span>
+                                  ))}
+                                  {notification.tags.length > 3 && (
+                                    <span className="px-1.5 py-0.5 text-xs rounded-full bg-gray-100 text-gray-800">
+                                      +{notification.tags.length - 3} more
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                              {/* Direct attachments display */}
+                              {notification.attachments && notification.attachments.length > 0 && (
+                                <AttachmentsList attachments={notification.attachments} />
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-3 py-4 whitespace-nowrap">
+                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getTypeColor(notification.type)}`}>
+                              {notification.type}
                             </span>
-                          ) : (
-                            "Publish to Examiners"
-                          )}
-                        </button>
-                      </div>
-                    </div>
+                          </td>
+                          <td className="px-3 py-4 whitespace-nowrap">
+                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getPriorityColor(notification.priority)}`}>
+                              {notification.priority}
+                            </span>
+                          </td>
+                          <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <div>
+                              <span className="font-medium">Effective:</span> {notification.effectiveDate}
+                            </div>
+                            <div className={
+                              isExpired(notification.expirationDate)
+                                ? 'text-red-600'
+                                : isExpiringSoon(notification.expirationDate)
+                                  ? 'text-amber-600'
+                                  : ''
+                            }>
+                              <span className="font-medium">Expires:</span> {notification.expirationDate} 
+                              {isExpired(notification.expirationDate) && ' (Expired)'}
+                              {!isExpired(notification.expirationDate) && isExpiringSoon(notification.expirationDate) && ' (Soon)'}
+                            </div>
+                          </td>
+                          <td className="px-3 py-4 whitespace-nowrap">
+                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(notification.status)}`}>
+                              {normalizeStatus(notification.status)}
+                            </span>
+                          </td>
+                          <td className="px-3 py-4 whitespace-nowrap text-sm text-right space-x-1">
+                            <button
+                              onClick={() => handleEdit(notification)}
+                              className="px-2 py-1 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200"
+                              title="Edit"
+                            >
+                              Edit
+                            </button>
+                            
+                            <button
+                              onClick={() => handleDelete(notification.id)}
+                              className="px-2 py-1 bg-red-100 text-red-700 rounded-md hover:bg-red-200"
+                              title="Delete"
+                            >
+                              Delete
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Grid View */}
+            {viewMode === "grid" && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {isLoading ? (
+                  <div className="col-span-full text-center py-8 text-gray-500">
+                    Loading notifications...
                   </div>
-                  
-                  <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Display Options</h3>
-                    </div>
-                    <div className="mt-3">
-                      <div className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          id="highlightNotice"
-                          name="highlightNotice"
-                          checked={newNotice.highlightNotice}
-                          onChange={handleInputChange}
-                          className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-400 border-gray-300 dark:border-gray-600 rounded"
-                        />
-                        <label htmlFor="highlightNotice" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                          Highlight as Important Notice
-                        </label>
-                      </div>
-                      {newNotice.highlightNotice && (
-                        <div className="mt-2 text-xs text-yellow-600 dark:text-yellow-400 flex items-center">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                          </svg>
-                          Highlighted notices appear with special styling and priority in lists
+                ) : filteredNotifications.length === 0 ? (
+                  <div className="col-span-full text-center py-8 text-gray-500">
+                    No notifications found.
+                  </div>
+                ) : (
+                  filteredNotifications.map((notification) => (
+                    <div 
+                      key={notification.id} 
+                      className={`bg-white rounded-lg shadow-md overflow-hidden relative ${
+                        isExpired(notification.expirationDate) ? 'opacity-75' : ''
+                      }`}
+                    >
+                      {bulkSelectMode && (
+                        <div className="absolute top-2 left-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedNotifications.includes(notification.id)}
+                            onChange={() => toggleSelectNotification(notification.id)}
+                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                          />
                         </div>
                       )}
+                      
+                      <div className="px-4 py-5 sm:p-6">
+                        <div className="flex justify-between items-start">
+                          <h3 className="text-lg font-medium text-gray-900 pr-4">{notification.title}</h3>
+                          <div className="flex space-x-1">
+                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getTypeColor(notification.type)}`}>
+                              {notification.type}
+                            </span>
+                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getPriorityColor(notification.priority)}`}>
+                              {notification.priority}
+                            </span>
+                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(notification.status)}`}>
+                              {normalizeStatus(notification.status)}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        <div className="mt-2 text-sm text-gray-500">
+                          <p className="line-clamp-3">{notification.body}</p>
+                        </div>
+                        
+                        {notification.tags && Array.isArray(notification.tags) && notification.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-3">
+                            {notification.tags.map((tag, idx) => (
+                              <span key={idx} className="px-1.5 py-0.5 text-xs rounded-full bg-blue-100 text-blue-800">
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        
+                        {/* Direct attachments display */}
+                        {notification.attachments && notification.attachments.length > 0 && (
+                          <AttachmentsList attachments={notification.attachments} />
+                        )}
+                        
+                        <div className="mt-4 text-xs text-gray-500">
+                          <div className="flex justify-between">
+                            <span>
+                              <span className="font-medium">Effective:</span> {notification.effectiveDate}
+                            </span>
+                            <span className={
+                              isExpired(notification.expirationDate)
+                                ? 'text-red-600'
+                                : isExpiringSoon(notification.expirationDate)
+                                  ? 'text-amber-600'
+                                  : ''
+                            }>
+                              <span className="font-medium">Expires:</span> {notification.expirationDate}
+                            </span>
+                          </div>
+                          
+                          <div className="flex justify-between mt-1">
+                            <span>
+                              <span className="font-medium">Author:</span> {notification.author || 'N/A'}
+                            </span>
+                            <span>
+                              <span className="font-medium">ID:</span> {notification.id ? notification.id.slice(0, 8) : 'N/A'}...
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="px-4 py-4 bg-gray-50 border-t border-gray-200 flex justify-end space-x-2">
+                        <button
+                          onClick={() => handleEdit(notification)}
+                          className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200"
+                          title="Edit"
+                        >
+                          Edit
+                        </button>
+                        
+                        <button
+                          onClick={() => handleDelete(notification.id)}
+                          className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded-md hover:bg-red-200"
+                          title="Delete"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                </div>
+                  ))
+                )}
               </div>
-              <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-                <button 
-                  type="button" 
-                  onClick={() => setIsFormVisible(false)}
-                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit"
-                  disabled={isLoading}
-                  className={`px-6 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 transition-all transform hover:scale-105 ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
-                >
-                  {isLoading ? (
-                    <span className="flex items-center">
-                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Processing...
-                    </span>
-                  ) : (
-                    editNoticeId ? "Update Notice" : "Create Notice"
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
+            )}
 
-        {/* Notice Cards */}
-        <div className="grid grid-cols-1 gap-4">
-          {filteredNotices.length === 0 && !isLoading ? (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 text-center">
-              <div className="flex flex-col items-center justify-center py-8">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-                <p className="text-gray-500 dark:text-gray-400 mb-4 text-lg">No notices found</p>
-                <button 
-                  onClick={() => {
-                    setEditNoticeId(null);
-                    setIsFormVisible(true);
-                  }}
-                  className="mt-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium rounded-md shadow-md transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 flex items-center transform hover:scale-105"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-                  </svg>
-                  Create Your First Notice
-                </button>
-              </div>
-            </div>
-          ) : (
-            </button>
-            <button 
-              onClick={() => {
-                setEditNoticeId(null);
-                setNewNotice({
-                  id: Date.now().toString(),
-                  title: "",
-                  type: "Academic",
-                  priority: "Medium",
-                  body: "",
-                  author: "",
-                  effectiveDate: formatDate(new Date()),
-                  expirationDate: formatDate(addDays(new Date(), 30)),
-                  tags: [],
-                  attachments: [],
-                  publishToStudents: false,
-                  publishToExaminers: false,
-                  highlightNotice: false
-                });
-                setIsFormVisible(!isFormVisible);
-              }}
-              className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium rounded-md shadow-md transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 flex items-center transform hover:scale-105"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-              </svg>
-              {isFormVisible ? "Hide Form" : "Create Notice"}
-            </button>
+            {/* Calendar View */}
+            {viewMode === "calendar" && renderCalendar()}
           </div>
-        </div>
-      </header>
+        </Content>
+      </Layout>
+    </Layout>
+  );
+}
 
-      <div className="container mx-auto p-4">
-        {/* Error message display */}
-        {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 relative" role="alert">
-            <strong className="font-bold">Error: </strong>
-            <span className="block sm:inline">{error}</span>
-            <button 
-              className="absolute top-0 bottom-0 right-0 px-4 py-3"
-              onClick={() => setError(null)}
-            >
-              <svg className="fill-current h-6 w-6 text-red-500" role="button" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                <title>Close</title>
-                <path d="M14.348 14.849a1.2 1.2 0 0 1-1.697 0L10 11.819l-2.651 3.029a1.2 1.2 0 1 1-1.697-1.697l2.758-3.15-2.759-3.152a1.2 1.2 0 1 1 1.697-1.697L10 8.183l2.651-3.031a1.2 1.2 0 1 1 1.697 1.697l-2.758 3.152 2.758 3.15a1.2 1.2 0 0 1 0 1.698z"/>
-              </svg>
-            </button>
-          </div>
-        )}
-      
-        {/* Loading indicator */}
-        {isLoading && (
-          <div className="flex justify-center items-center py-4">
-            <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-indigo-500"></div>
-          </div>
-        )}
-      
-        {/* Dashboard Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 flex items-center border-l-4 border-indigo-500 transform transition-transform hover:scale-105">
-            <div className="rounded-full bg-indigo-100 dark:bg-indigo-900 p-3 mr-4">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-indigo-600 dark:text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-              </svg>
-            </div>
-            <div>
-              <h3 className="text-gray-500 dark:text-gray-400 text-sm font-medium">Total Notices</h3>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{noticeStats.total}</p>
-            </div>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 flex items-center border-l-4 border-green-500 transform transition-transform hover:scale-105">
-            <div className="rounded-full bg-green-100 dark:bg-green-900 p-3 mr-4">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <div>
-              <h3 className="text-gray-500 dark:text-gray-400 text-sm font-medium">Active Notices</h3>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{noticeStats.active}</p>
-            </div>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 flex items-center border-l-4 border-red-500 transform transition-transform hover:scale-105">
-            <div className="rounded-full bg-red-100 dark:bg-red-900 p-3 mr-4">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </div>
-            <div>
-              <h3 className="text-gray-500 dark:text-gray-400 text-sm font-medium">Expired Notices</h3>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{noticeStats.expired}</p>
-            </div>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 flex items-center border-l-4 border-purple-500 transform transition-transform hover:scale-105">
-            <div className="rounded-full bg-purple-100 dark:bg-purple-900 p-3 mr-4">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-purple-600 dark:text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-            </div>
-            <div>
-              <h3 className="text-gray-500 dark:text-gray-400 text-sm font-medium">Published Notices</h3>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {notices.filter(notice => notice.publishToStudents || notice.publishToExaminers).length}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Search and Filters Row */}
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 mb-6" role="region" aria-labelledby="notice-management">
-
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <div className="md:col-span-2">
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </div>
-                <input
-                  type="text"
-                  placeholder="Search by title, content, author or tags..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-4 py-2 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 shadow-sm transition-colors"
-                />
-              </div>
-            </div>
-            <div>
-              <select
-                value={filterType}
-                onChange={(e) => setFilterType(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 shadow-sm transition-colors"
-              >
-                <option value="all">All Types</option>
-                <option value="Academic">Academic</option>
-                <option value="Schedule">Schedule</option>
-                <option value="Deadline">Deadline</option>
-                <option value="Venue">Venue</option>
-                <option value="Technical">Technical</option>
-                <option value="Faculty">Faculty</option>
-                <option value="Administrative">Administrative</option>
-                <option value="Resource">Resource</option>
-                <option value="Workshop">Workshop</option>
-                <option value="Requirements">Requirements</option>
-                <option value="Evaluation">Evaluation</option>
-                <option value="Equipment">Equipment</option>
-                <option value="Remote">Remote Access</option>
-                <option value="General">General</option>
-              </select>
-            </div>
+export default AdminNotificationPanel;

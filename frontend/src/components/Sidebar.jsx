@@ -15,6 +15,9 @@ function Sidebar() {
         <Menu.Item key="calendar" icon={<CalendarOutlined />}>
           <Link to="/calendar">Examiner Calendar</Link>
         </Menu.Item>
+        <Menu.Item key="calendar" icon={<CalendarOutlined />}>
+          <Link to="/notify">Notify Builder</Link>
+        </Menu.Item>
       </Menu>
     </Sider>
   );
