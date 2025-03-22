@@ -1,16 +1,20 @@
 import Examiner from "../models/Examiner.js";
 
-export function addExaminer(req, res) {
-  const data=req.body;
-  const newexaminer = new Examiner(data);
-  newexaminer
-    .save()
-    .then((result) => {
-      res.status(201).json({ message: "Examiner added successfully" });
-    })
-    .catch((error) => {
-      res.status(500).json({ message:"Examiner adding failed" });
-    })
+export async function addExaminer(req, res) {
+  try {
+    const data = req.body;
+
+    // Count existing examiners to generate a unique ID
+    const count = await Examiner.countDocuments();
+    data.id = `EX+${count + 1}`;
+
+    const newExaminer = new Examiner(data);
+    await newExaminer.save();
+
+    res.status(201).json({ message: "Examiner added successfully", examiner: newExaminer });
+  } catch (error) {
+    res.status(500).json({ message: "Examiner adding failed", error: error.message });
+  }
 }
 
 export async function getExaminers(req, res) {

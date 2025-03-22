@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Loader2, Save, UserCog } from "lucide-react";
 import Sidebar from "../Sidebar";
+import Select from "react-select"; // Importing the react-select package
 
 export default function UpdateExaminer() {
   const { id } = useParams();
@@ -14,7 +15,7 @@ export default function UpdateExaminer() {
     position: "",
     phone: "",
     department: "",
-    availability: "true",
+    availability: true, // Default to true (available)
     courses: [],
     modules: [],
     salary: 0,
@@ -22,6 +23,32 @@ export default function UpdateExaminer() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  const examinerPositions = [
+    "Internal Examiner", "External Examiner", "Chief Examiner",
+    "Practical Examiner", "Dissertation Examiner",
+    "Continuous Assessment Examiner", "Online Examiner",
+  ];
+
+  const departments = [
+    "Department of Computer Science", "Department of Information Systems",
+    "Department of Cybersecurity", "Department of Artificial Intelligence",
+    "Department of Data Science", "Department of Business Administration",
+    "Department of Civil Engineering", "Department of Mechanical Engineering",
+    "Department of Electrical Engineering", "Department of Computer Engineering",
+  ];
+
+  const courseModules = {
+    "BSc in Computer Science": [
+      "CS101 Algorithms", "CS102 Operating Systems", "CS103 Software Engineering",
+    ],
+    "BSc in Software Engineering": [
+      "SE101 Data Structures", "SE102 Database Management", "SE103 Software Testing",
+    ],
+    "BSc in Artificial Intelligence": [
+      "AI101 Machine Learning", "AI102 Neural Networks", "AI103 Natural Language Processing",
+    ],
+  };
 
   useEffect(() => {
     fetch(`http://localhost:5001/api/examiners/${id}`)
@@ -48,11 +75,27 @@ export default function UpdateExaminer() {
     }));
   };
 
-  const handleArrayChange = (e, field) => {
-    const value = e.target.value;
+  const handleAvailabilityChange = () => {
     setExaminer((prev) => ({
       ...prev,
-      [field]: value.split(",").map((item) => item.trim()),
+      availability: !prev.availability, // Toggle the availability
+    }));
+  };
+
+  const handleCourseChange = (selectedCourses) => {
+    const courses = selectedCourses.map((option) => option.value);
+    setExaminer((prev) => ({
+      ...prev,
+      courses,
+      modules: [], // Reset modules when courses are changed
+    }));
+  };
+
+  const handleModuleChange = (selectedModules) => {
+    const modules = selectedModules.map((module) => module.value);
+    setExaminer((prev) => ({
+      ...prev,
+      modules,
     }));
   };
 
@@ -112,14 +155,10 @@ export default function UpdateExaminer() {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="rounded-lg bg-white p-6 shadow-sm">
-              <h2 className="mb-4 text-lg font-semibold text-gray-900">
-                Basic Information
-              </h2>
+              <h2 className="mb-4 text-lg font-semibold text-gray-900">Basic Information</h2>
               <div className="grid gap-6 md:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    First Name
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700">First Name</label>
                   <input
                     type="text"
                     name="fname"
@@ -129,9 +168,7 @@ export default function UpdateExaminer() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Last Name
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700">Last Name</label>
                   <input
                     type="text"
                     name="lname"
@@ -141,17 +178,9 @@ export default function UpdateExaminer() {
                   />
                 </div>
               </div>
-            </div>
-
-            <div className="rounded-lg bg-white p-6 shadow-sm">
-              <h2 className="mb-4 text-lg font-semibold text-gray-900">
-                Contact Details
-              </h2>
               <div className="grid gap-6 md:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Email
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700">Email</label>
                   <input
                     type="email"
                     name="email"
@@ -160,104 +189,84 @@ export default function UpdateExaminer() {
                     className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Phone
+                <div className="flex items-center space-x-2">
+                  <label className="text-sm font-medium text-gray-700">Status</label>
+                  <label className="inline-flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={examiner.availability}
+                      onChange={handleAvailabilityChange}
+                      className="form-checkbox h-5 w-5 text-purple-600"
+                    />
+                    <span className="ml-2 text-sm font-medium text-gray-700">
+                      {examiner.availability ? "Available" : "Unavailable"}
+                    </span>
                   </label>
-                  <input
-                    type="text"
-                    name="phone"
-                    value={examiner.phone}
-                    onChange={handleChange}
-                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                  />
                 </div>
               </div>
             </div>
 
             <div className="rounded-lg bg-white p-6 shadow-sm">
-              <h2 className="mb-4 text-lg font-semibold text-gray-900">
-                Professional Details
-              </h2>
+              <h2 className="mb-4 text-lg font-semibold text-gray-900">Professional Details</h2>
               <div className="grid gap-6 md:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Position
-                  </label>
-                  <input
-                    type="text"
+                  <label className="block text-sm font-medium text-gray-700">Position</label>
+                  <select
                     name="position"
                     value={examiner.position}
                     onChange={handleChange}
                     className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                  />
+                  >
+                    {examinerPositions.map((position) => (
+                      <option key={position} value={position}>
+                        {position}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Department
-                  </label>
-                  <input
-                    type="text"
+                  <label className="block text-sm font-medium text-gray-700">Department</label>
+                  <select
                     name="department"
                     value={examiner.department}
                     onChange={handleChange}
                     className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Availability
-                  </label>
-                  <select
-                    name="availability"
-                    value={examiner.availability}
-                    onChange={handleChange}
-                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
                   >
-                    <option value="true">Available</option>
-                    <option value="false">Not Available</option>
+                    {departments.map((department) => (
+                      <option key={department} value={department}>
+                        {department}
+                      </option>
+                    ))}
                   </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Salary
-                  </label>
-                  <input
-                    type="number"
-                    name="salary"
-                    value={examiner.salary}
-                    onChange={handleChange}
-                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                  />
                 </div>
               </div>
             </div>
 
             <div className="rounded-lg bg-white p-6 shadow-sm">
-              <h2 className="mb-4 text-lg font-semibold text-gray-900">
-                Academic Information
-              </h2>
+              <h2 className="mb-4 text-lg font-semibold text-gray-900">Academic Information</h2>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Courses (comma separated)
-                  </label>
-                  <input
-                    type="text"
-                    value={examiner.courses.join(", ")}
-                    onChange={(e) => handleArrayChange(e, "courses")}
-                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                  <label className="block text-sm font-medium text-gray-700">Courses</label>
+                  <Select
+                    isMulti
+                    name="courses"
+                    value={examiner.courses.map(course => ({ value: course, label: course }))}
+                    onChange={handleCourseChange}
+                    options={Object.keys(courseModules).map(course => ({ value: course, label: course }))}
+                    className="mt-1"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Modules (comma separated)
-                  </label>
-                  <input
-                    type="text"
-                    value={examiner.modules.join(", ")}
-                    onChange={(e) => handleArrayChange(e, "modules")}
-                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                  <label className="block text-sm font-medium text-gray-700">Modules</label>
+                  <Select
+                    isMulti
+                    name="modules"
+                    value={examiner.modules.map(module => ({ value: module, label: module }))}
+                    onChange={handleModuleChange}
+                    options={examiner.courses.flatMap(course =>
+                      courseModules[course] ? courseModules[course].map(module => ({ value: module, label: module })) : []
+                    )}
+                    className="mt-1"
                   />
                 </div>
               </div>
