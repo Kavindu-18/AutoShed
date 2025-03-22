@@ -6,7 +6,7 @@ export async function addExaminer(req, res) {
 
     // Count existing examiners to generate a unique ID
     const count = await Examiner.countDocuments();
-    data.id = `EX+${count + 1}`;
+    data.id = `EX${count + 1}`;
 
     const newExaminer = new Examiner(data);
     await newExaminer.save();

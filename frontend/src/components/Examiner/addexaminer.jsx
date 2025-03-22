@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Toaster, toast } from "react-hot-toast";
-import { UserPlus, Mail, Phone, Building2, BookOpen, GraduationCap, ChevronRight } from "lucide-react";
+import { Mail, Phone, Building2, BookOpen, GraduationCap, ChevronRight } from "lucide-react";
 import Sidebar from "../Sidebar";
 import Select from "react-select";
 
@@ -10,7 +10,6 @@ export default function AddExaminer() {
   const [currentStep, setCurrentStep] = useState(1);
 
   const [formData, setFormData] = useState({
-    id: "",
     email: "",
     fname: "",
     lname: "",
@@ -58,9 +57,9 @@ export default function AddExaminer() {
 
   const validateStep = (step) => {
     let newErrors = {};
-    
+
     if (step === 1) {
-      ["id", "email", "fname", "lname"].forEach((field) => {
+      ["email", "fname", "lname"].forEach((field) => {
         if (!formData[field].trim()) newErrors[field] = "Required";
       });
       if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
@@ -99,17 +98,17 @@ export default function AddExaminer() {
 
   const handleCourseChange = (selectedCourses) => {
     const courses = selectedCourses.map(option => option.value);
-    setFormData({ 
-      ...formData, 
+    setFormData({
+      ...formData,
       courses,
-      modules: [] 
+      modules: [],
     });
   };
 
   const handleModuleChange = (selectedModules) => {
-    setFormData({ 
-      ...formData, 
-      modules: selectedModules.map(module => module.value)
+    setFormData({
+      ...formData,
+      modules: selectedModules.map(module => module.value),
     });
   };
 
@@ -118,7 +117,6 @@ export default function AddExaminer() {
     if (!validateStep(3)) return;
 
     setLoading(true);
-    const loadingToast = toast.loading('Adding examiner...');
 
     try {
       const response = await fetch("http://localhost:5001/api/examiners", {
@@ -128,13 +126,27 @@ export default function AddExaminer() {
       });
 
       if (response.ok) {
-        toast.success('Examiner added successfully!', { id: loadingToast });
-        navigate("/viewexaminers");
+        toast.success('Examiner added successfully!', {
+          duration: 4000,
+          position: 'bottom-right',
+          style: {
+            background: '#10B981',
+            color: '#FFFFFF',
+            padding: '16px',
+          },
+        });
+        setTimeout(() => {
+          navigate("/viewexaminers");
+        }, 2000);
       } else {
-        toast.error('Failed to add examiner', { id: loadingToast });
+        toast.error('Failed to add examiner', {
+          position: 'bottom-right',
+        });
       }
     } catch (error) {
-      toast.error(`Error: ${error.message}`, { id: loadingToast });
+      toast.error(`Error: ${error.message}`, {
+        position: 'bottom-right',
+      });
     } finally {
       setLoading(false);
     }
@@ -145,12 +157,11 @@ export default function AddExaminer() {
       case 1:
         return (
           <div className="space-y-6">
-            <h3 className="text-xl font-medium text-gray-700 mb-6">Personal Information</h3>
-            {["id", "email", "fname", "lname"].map((field) => (
+            <h3 className="text-xl font-semibold text-gray-700 mb-6">Personal Information</h3>
+            {["email", "fname", "lname"].map((field) => (
               <div key={field} className="relative">
                 <div className="flex items-center">
                   {field === "email" && <Mail className="w-5 h-5 text-gray-400 absolute left-3" />}
-                  {field === "id" && <UserPlus className="w-5 h-5 text-gray-400 absolute left-3" />}
                   <input
                     type={field === "email" ? "email" : "text"}
                     name={field}
@@ -158,7 +169,7 @@ export default function AddExaminer() {
                     onChange={handleChange}
                     placeholder={field === "fname" ? "First Name" : 
                                field === "lname" ? "Last Name" : 
-                               field.toUpperCase()}
+                               "Email"}
                     className={`w-full pl-10 pr-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 ${
                       errors[field] ? 'border-red-500' : 'border-gray-300'
                     }`}
@@ -175,7 +186,7 @@ export default function AddExaminer() {
       case 2:
         return (
           <div className="space-y-6">
-            <h3 className="text-xl font-medium text-gray-700 mb-6">Professional Details</h3>
+            <h3 className="text-xl font-semibold text-gray-700 mb-6">Professional Details</h3>
             <div className="relative">
               <div className="flex items-center">
                 <GraduationCap className="w-5 h-5 text-gray-400 absolute left-3" />
@@ -244,7 +255,7 @@ export default function AddExaminer() {
       case 3:
         return (
           <div className="space-y-6">
-            <h3 className="text-xl font-medium text-gray-700 mb-6">Course Assignment</h3>
+            <h3 className="text-xl font-semibold text-gray-700 mb-6">Course Assignment</h3>
             <div className="relative">
               <div className="flex items-center mb-2">
                 <BookOpen className="w-5 h-5 text-gray-400 mr-2" />
@@ -345,7 +356,7 @@ export default function AddExaminer() {
               {currentStep > 1 && (
                 <button
                   onClick={handlePrevious}
-                  className="bg-gray-300 text-gray-700 py-2 px-6 rounded-lg hover:bg-gray-400"
+                  className="bg-gray-300 text-gray-700 py-2 px-6 rounded-lg hover:bg-gray-400 transition-colors duration-200"
                 >
                   Back
                 </button>
@@ -354,23 +365,31 @@ export default function AddExaminer() {
               {currentStep < 3 ? (
                 <button
                   onClick={handleNext}
-                  className="bg-blue-500 text-white py-2 px-6 rounded-lg hover:bg-blue-600"
+                  className="bg-blue-500 text-white py-2 px-6 rounded-lg hover:bg-blue-600 transition-colors duration-200 ml-auto"
                 >
                   Next
                 </button>
               ) : (
                 <button
                   onClick={handleSubmit}
-                  className="bg-green-500 text-white py-2 px-6 rounded-lg hover:bg-green-600"
+                  className="bg-green-500 text-white py-2 px-6 rounded-lg hover:bg-green-600 transition-colors duration-200 ml-auto flex items-center"
                   disabled={loading}
                 >
-                  {loading ? 'Submitting...' : 'Submit'}
+                  {loading ? (
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  ) : (
+                    'Submit'
+                  )}
                 </button>
               )}
             </div>
           </div>
         </div>
       </div>
+      <Toaster />
     </div>
   );
 }

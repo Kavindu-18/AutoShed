@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Loader2, Save, UserCog } from "lucide-react";
+import Select from "react-select";
+import toast from "react-hot-toast";
 import Sidebar from "../Sidebar";
-import Select from "react-select"; // Importing the react-select package
 
 export default function UpdateExaminer() {
   const { id } = useParams();
@@ -15,13 +16,14 @@ export default function UpdateExaminer() {
     position: "",
     phone: "",
     department: "",
-    availability: true, // Default to true (available)
+    availability: true,
     courses: [],
     modules: [],
     salary: 0,
   });
 
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   const examinerPositions = [
@@ -64,6 +66,7 @@ export default function UpdateExaminer() {
         console.error("Error fetching examiner:", error);
         setError("Failed to load examiner data.");
         setLoading(false);
+        toast.error("Failed to load examiner data");
       });
   }, [id]);
 
@@ -78,7 +81,7 @@ export default function UpdateExaminer() {
   const handleAvailabilityChange = () => {
     setExaminer((prev) => ({
       ...prev,
-      availability: !prev.availability, // Toggle the availability
+      availability: !prev.availability,
     }));
   };
 
@@ -87,7 +90,7 @@ export default function UpdateExaminer() {
     setExaminer((prev) => ({
       ...prev,
       courses,
-      modules: [], // Reset modules when courses are changed
+      modules: [],
     }));
   };
 
@@ -99,24 +102,35 @@ export default function UpdateExaminer() {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setSaving(true);
 
-    fetch(`http://localhost:5001/api/examiners/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(examiner),
-    })
-      .then((response) => {
-        if (!response.ok) throw new Error("Failed to update examiner");
-        return response.json();
-      })
-      .then(() => navigate("/viewexaminers"))
-      .catch((error) => {
-        console.error("Error updating examiner:", error);
-        setError("Failed to update examiner.");
+    try {
+      const response = await fetch(`http://localhost:5001/api/examiners/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(examiner),
       });
+
+      if (!response.ok) throw new Error("Failed to update examiner");
+
+      toast.success("Examiner updated successfully!", {
+        duration: 4000,
+        icon: '🎉',
+      });
+
+      setTimeout(() => {
+        navigate("/viewexaminers");
+      }, 2000);
+    } catch (error) {
+      console.error("Error updating examiner:", error);
+      setError("Failed to update examiner.");
+      toast.error("Failed to update examiner");
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {
@@ -178,7 +192,7 @@ export default function UpdateExaminer() {
                   />
                 </div>
               </div>
-              <div className="grid gap-6 md:grid-cols-2">
+              <div className="mt-4 grid gap-6 md:grid-cols-2">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Email</label>
                   <input
@@ -217,6 +231,7 @@ export default function UpdateExaminer() {
                     onChange={handleChange}
                     className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
                   >
+                    <option value="">Select Position</option>
                     {examinerPositions.map((position) => (
                       <option key={position} value={position}>
                         {position}
@@ -232,6 +247,7 @@ export default function UpdateExaminer() {
                     onChange={handleChange}
                     className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
                   >
+                    <option value="">Select Department</option>
                     {departments.map((department) => (
                       <option key={department} value={department}>
                         {department}
@@ -254,6 +270,7 @@ export default function UpdateExaminer() {
                     onChange={handleCourseChange}
                     options={Object.keys(courseModules).map(course => ({ value: course, label: course }))}
                     className="mt-1"
+                    classNamePrefix="select"
                   />
                 </div>
                 <div>
@@ -267,6 +284,7 @@ export default function UpdateExaminer() {
                       courseModules[course] ? courseModules[course].map(module => ({ value: module, label: module })) : []
                     )}
                     className="mt-1"
+                    classNamePrefix="select"
                   />
                 </div>
               </div>
@@ -282,10 +300,20 @@ export default function UpdateExaminer() {
               </button>
               <button
                 type="submit"
-                className="inline-flex items-center rounded-md bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+                disabled={saving}
+                className={`inline-flex items-center rounded-md bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${saving ? 'opacity-75 cursor-not-allowed' : ''}`}
               >
-                <Save className="mr-2 h-4 w-4" />
-                Save Changes
+                {saving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" />
+                    Save Changes
+                  </>
+                )}
               </button>
             </div>
           </form>

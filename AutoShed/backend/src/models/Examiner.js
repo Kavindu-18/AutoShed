@@ -1,8 +1,8 @@
 import mongoose from "mongoose";
 
 const examinerSchema = mongoose.Schema({
-  id: { type: String, required: true },
-  email:{ type: String, required: true,unique: true},
+  id: { type: String,  },
+  email:{ type: String, required: true,},
   fname: { type: String, required: true },
   lname: { type: String, required: true },
   position: { type: String, required: true },
