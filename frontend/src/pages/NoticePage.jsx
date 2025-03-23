@@ -1563,6 +1563,7 @@ function AdminNotificationPanel() {
                               className="px-2 py-1 bg-red-100 text-red-700 rounded-md hover:bg-red-200"
                               title="Delete"
                             >
+
                               Delete
                             </button>
                           </td>
