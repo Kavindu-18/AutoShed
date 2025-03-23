@@ -22,19 +22,10 @@ const AdminNotificationMng = {
       const formData = new FormData();
       formData.append('file', file);
       
-      // Replace with your actual API endpoint
-      // const response = await fetch('/api/attachments/upload', {
-      //   method: 'POST',
-      //   body: formData
-      // });
-      // const data = await response.json();
-      // return data;
-
       // Create a local URL for the frontend display
       const fileUrl = URL.createObjectURL(file);
       
       // Mock implementation for demo purposes
-      // Store additional metadata that we'll use in the UI, but only send the URL to the backend
       const mockResponse = {
         id: Date.now().toString(),
         filename: file.name,
@@ -52,11 +43,6 @@ const AdminNotificationMng = {
 
   deleteAttachment: async (attachmentId) => {
     try {
-      // In a real implementation, this would call the actual backend API
-      // await fetch(`/api/attachments/${attachmentId}`, {
-      //   method: 'DELETE'
-      // });
-      
       // Mock implementation for demo purposes
       return { success: true };
     } catch (error) {
@@ -75,9 +61,7 @@ const AdminNotificationMng = {
       const notificationToSend = JSON.parse(JSON.stringify(notification));
       
       // Convert attachment objects to strings (URLs) for the backend
-      // The backend schema expects attachments to be an array of strings
       if (Array.isArray(notificationToSend.attachments) && notificationToSend.attachments.length > 0) {
-        // Extract just the URLs from the attachment objects
         notificationToSend.attachments = notificationToSend.attachments.map(attachment => 
           attachment.url || attachment.filename || attachment
         );
@@ -85,12 +69,9 @@ const AdminNotificationMng = {
         notificationToSend.attachments = [];
       }
       
-      console.log("Sending notification with attachments:", notificationToSend.attachments);
-      
       // Make sure we call the backend API with properly formatted data
       const result = await NoticeMng.createNotice(notificationToSend);
       
-      // Return the result from the backend, not the local object
       return result;
     } catch (error) {
       console.error("Error creating notification:", error);
@@ -108,9 +89,7 @@ const AdminNotificationMng = {
       const notificationToSend = JSON.parse(JSON.stringify(notification));
       
       // Convert attachment objects to strings (URLs) for the backend
-      // The backend schema expects attachments to be an array of strings
       if (Array.isArray(notificationToSend.attachments) && notificationToSend.attachments.length > 0) {
-        // Extract just the URLs from the attachment objects
         notificationToSend.attachments = notificationToSend.attachments.map(attachment => 
           attachment.url || attachment.filename || attachment
         );
@@ -118,12 +97,9 @@ const AdminNotificationMng = {
         notificationToSend.attachments = [];
       }
       
-      console.log("Sending notification with attachments:", notificationToSend.attachments);
-      
       // Make sure we call the backend API with properly formatted data
       const result = await NoticeMng.updateNotice(id, notificationToSend);
       
-      // Return the result from the backend, not the local object
       return result;
     } catch (error) {
       console.error("Error updating notification:", error);
@@ -224,13 +200,6 @@ const formatFileSize = (bytes) => {
   if (bytes === 0) return '0 Byte';
   const i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
   return Math.round(bytes / Math.pow(1024, i), 2) + ' ' + sizes[i];
-};
-
-// Function to normalize status values
-const normalizeStatus = (status) => {
-  if (!status) return 'Draft'; // Default status if undefined
-  // Convert to string and capitalize first letter
-  return status.toString().charAt(0).toUpperCase() + status.toString().slice(1);
 };
 
 // Get a valid URL from an attachment object or string
@@ -344,12 +313,10 @@ function AdminNotificationPanel() {
   const [sortOrder, setSortOrder] = useState("desc");
   const [filterType, setFilterType] = useState("all");
   const [filterPriority, setFilterPriority] = useState("all");
-  const [filterStatus, setFilterStatus] = useState("all");
   const [isLoading, setIsLoading] = useState(false);
   const [bulkSelectMode, setBulkSelectMode] = useState(false);
   const [selectedNotifications, setSelectedNotifications] = useState([]);
   const [error, setError] = useState(null);
-  const [tagInput, setTagInput] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
   const [statusMessage, setStatusMessage] = useState("");
   const [stats, setStats] = useState(null);
@@ -388,12 +355,10 @@ function AdminNotificationPanel() {
     author: "",
     effectiveDate: formatDate(new Date()),
     expirationDate: formatDate(addDays(new Date(), 30)),
-    tags: [],
     attachments: [],
     publishToStudents: false,
     publishToExaminers: false,
     highlightNotice: false,
-    status: "Draft", // Default status is now Draft instead of Published
     notifyViaEmail: false, // New field: Send email notification
     targetAudience: [] // New field: More specific targeting
   });
@@ -435,14 +400,6 @@ function AdminNotificationPanel() {
     if (filterPriority !== "all") {
       result = result.filter(notification => notification.priority === filterPriority);
     }
-    
-    // Apply status filter - Updated to use normalized status values
-    if (filterStatus !== "all") {
-      result = result.filter(notification => {
-        const notificationStatus = normalizeStatus(notification.status);
-        return notificationStatus === filterStatus;
-      });
-    }
 
     // Apply search filter (enhanced with more fields)
     if (searchTerm) {
@@ -451,7 +408,6 @@ function AdminNotificationPanel() {
         (notification.title || '').toLowerCase().includes(lowerSearchTerm) ||
         (notification.body || '').toLowerCase().includes(lowerSearchTerm) ||
         (notification.author || '').toLowerCase().includes(lowerSearchTerm) ||
-        (notification.tags && Array.isArray(notification.tags) && notification.tags.some(tag => tag.toLowerCase().includes(lowerSearchTerm))) ||
         (notification.id || '').toLowerCase().includes(lowerSearchTerm)
       );
     }
@@ -483,7 +439,7 @@ function AdminNotificationPanel() {
     });
 
     setFilteredNotifications(result);
-  }, [notifications, filterType, filterPriority, filterStatus, searchTerm, sortBy, sortOrder]);
+  }, [notifications, filterType, filterPriority, searchTerm, sortBy, sortOrder]);
 
   // Helper function to refresh data from backend
   const refreshData = () => {
@@ -635,13 +591,16 @@ function AdminNotificationPanel() {
         throw new Error("Expiration date cannot be earlier than effective date");
       }
 
+      // Create a copy to avoid any reference issues
+      const notificationToSubmit = { ...newNotification };
+
       if (editNotificationId) {
         // Update existing notification
-        await AdminNotificationMng.updateNotification(editNotificationId, newNotification);
+        await AdminNotificationMng.updateNotification(editNotificationId, notificationToSubmit);
         setStatusMessage("Notification updated successfully!");
       } else {
         // Create new notification
-        await AdminNotificationMng.createNotification(newNotification);
+        await AdminNotificationMng.createNotification(notificationToSubmit);
         setStatusMessage("Notification created successfully!");
       }
 
@@ -655,12 +614,10 @@ function AdminNotificationPanel() {
         author: "",
         effectiveDate: formatDate(new Date()),
         expirationDate: formatDate(addDays(new Date(), 30)),
-        tags: [],
         attachments: [],
         publishToStudents: false,
         publishToExaminers: false,
         highlightNotice: false,
-        status: "Draft",
         notifyViaEmail: false,
         targetAudience: []
       });
@@ -730,8 +687,11 @@ function AdminNotificationPanel() {
   // Standard handlers
   const handleEdit = (notification) => {
     setEditNotificationId(notification.id);
+    
     // Make a deep copy to avoid reference issues
-    setNewNotification(JSON.parse(JSON.stringify(notification)));
+    const notificationCopy = JSON.parse(JSON.stringify(notification));
+    
+    setNewNotification(notificationCopy);
     setIsFormVisible(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -794,23 +754,6 @@ function AdminNotificationPanel() {
         return 'bg-purple-100 text-purple-800';
       case 'Event':
         return 'bg-emerald-100 text-emerald-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-  
-  const getStatusColor = (status) => {
-    const normalizedStatus = normalizeStatus(status);
-    
-    switch (normalizedStatus) {
-      case 'Published':
-        return 'bg-green-100 text-green-800';
-      case 'Draft':
-        return 'bg-gray-100 text-gray-800';
-      case 'Archived':
-        return 'bg-amber-100 text-amber-800';
-      case 'Pending':
-        return 'bg-blue-100 text-blue-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -974,9 +917,6 @@ function AdminNotificationPanel() {
                         </span>
                         <span className={`px-2 py-0.5 text-xs rounded-full ${getPriorityColor(notification.priority)}`}>
                           {notification.priority}
-                        </span>
-                        <span className={`px-2 py-0.5 text-xs rounded-full ${getStatusColor(notification.status)}`}>
-                          {normalizeStatus(notification.status)}
                         </span>
                       </div>
                     </div>
@@ -1151,21 +1091,6 @@ function AdminNotificationPanel() {
                     </div>
                     
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                      <select
-                        name="status"
-                        value={newNotification.status}
-                        onChange={(e) => setNewNotification({...newNotification, status: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        <option value="Draft">Draft</option>
-                        <option value="Pending">Pending</option>
-                        <option value="Published">Published</option>
-                        <option value="Archived">Archived</option>
-                      </select>
-                    </div>
-                    
-                    <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Effective Date</label>
                       <input
                         type="date"
@@ -1198,73 +1123,6 @@ function AdminNotificationPanel() {
                       rows="6"
                       required
                     ></textarea>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Tags</label>
-                    <div className="flex items-center">
-                      <input
-                        type="text"
-                        value={tagInput}
-                        onChange={(e) => setTagInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && tagInput.trim()) {
-                            e.preventDefault();
-                            const currentTags = Array.isArray(newNotification.tags) ? newNotification.tags : [];
-                            if (!currentTags.includes(tagInput.trim())) {
-                              setNewNotification({
-                                ...newNotification,
-                                tags: [...currentTags, tagInput.trim()]
-                              });
-                            }
-                            setTagInput('');
-                          }
-                        }}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Add a tag and press Enter"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (tagInput.trim()) {
-                            const currentTags = Array.isArray(newNotification.tags) ? newNotification.tags : [];
-                            if (!currentTags.includes(tagInput.trim())) {
-                              setNewNotification({
-                                ...newNotification,
-                                tags: [...currentTags, tagInput.trim()]
-                              });
-                            }
-                            setTagInput('');
-                          }
-                        }}
-                        className="px-4 py-2 bg-blue-500 text-white rounded-r-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        Add
-                      </button>
-                    </div>
-                    
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {Array.isArray(newNotification.tags) && newNotification.tags.map((tag, index) => (
-                        <span 
-                          key={index} 
-                          className="px-2 py-1 bg-blue-100 text-blue-800 rounded-md flex items-center"
-                        >
-                          {tag}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setNewNotification({
-                                ...newNotification,
-                                tags: newNotification.tags.filter((_, i) => i !== index)
-                              });
-                            }}
-                            className="ml-1 text-blue-600 hover:text-blue-800 focus:outline-none"
-                          >
-                            ×
-                          </button>
-                        </span>
-                      ))}
-                    </div>
                   </div>
                   
                   {/* File Upload */}
@@ -1423,12 +1281,10 @@ function AdminNotificationPanel() {
                           author: "",
                           effectiveDate: formatDate(new Date()),
                           expirationDate: formatDate(addDays(new Date(), 30)),
-                          tags: [],
                           attachments: [],
                           publishToStudents: false,
                           publishToExaminers: false,
                           highlightNotice: false,
-                          status: "Draft",
                           notifyViaEmail: false,
                           targetAudience: []
                         });
@@ -1457,7 +1313,7 @@ function AdminNotificationPanel() {
                   <div className="relative">
                     <input
                       type="text"
-                      placeholder="Search notifications by title, content, author, tags or ID..."
+                      placeholder="Search notifications by title, content, author or ID..."
                       className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
@@ -1490,18 +1346,6 @@ function AdminNotificationPanel() {
                     <option value="High">High</option>
                     <option value="Medium">Medium</option>
                     <option value="Low">Low</option>
-                  </select>
-                  
-                  <select
-                    className="px-3 py-2 border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value)}
-                  >
-                    <option value="all">All Statuses</option>
-                    <option value="Draft">Draft</option>
-                    <option value="Pending">Pending</option>
-                    <option value="Published">Published</option>
-                    <option value="Archived">Archived</option>
                   </select>
                   
                   <select
@@ -1581,12 +1425,10 @@ function AdminNotificationPanel() {
                               author: "",
                               effectiveDate: formatDate(new Date()),
                               expirationDate: formatDate(addDays(new Date(), 30)),
-                              tags: [],
                               attachments: [],
                               publishToStudents: false,
                               publishToExaminers: false,
                               highlightNotice: false,
-                              status: "Draft",
                               notifyViaEmail: false,
                               targetAudience: []
                             });
@@ -1631,9 +1473,6 @@ function AdminNotificationPanel() {
                         Dates
                       </th>
                       <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Actions
                       </th>
                     </tr>
@@ -1641,13 +1480,13 @@ function AdminNotificationPanel() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {isLoading ? (
                       <tr>
-                        <td colSpan={bulkSelectMode ? 7 : 6} className="px-3 py-4 text-center text-sm text-gray-500">
+                        <td colSpan={bulkSelectMode ? 6 : 5} className="px-3 py-4 text-center text-sm text-gray-500">
                           Loading notifications...
                         </td>
                       </tr>
                     ) : filteredNotifications.length === 0 ? (
                       <tr>
-                        <td colSpan={bulkSelectMode ? 7 : 6} className="px-3 py-4 text-center text-sm text-gray-500">
+                        <td colSpan={bulkSelectMode ? 6 : 5} className="px-3 py-4 text-center text-sm text-gray-500">
                           No notifications found.
                         </td>
                       </tr>
@@ -1677,20 +1516,7 @@ function AdminNotificationPanel() {
                               <div className="text-xs text-gray-500 mt-1">
                                 ID: {notification.id ? notification.id.slice(0, 8) : 'N/A'}... | Author: {notification.author || 'N/A'}
                               </div>
-                              {notification.tags && Array.isArray(notification.tags) && notification.tags.length > 0 && (
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                  {notification.tags.slice(0, 3).map((tag, idx) => (
-                                    <span key={idx} className="px-1.5 py-0.5 text-xs rounded-full bg-blue-100 text-blue-800">
-                                      {tag}
-                                    </span>
-                                  ))}
-                                  {notification.tags.length > 3 && (
-                                    <span className="px-1.5 py-0.5 text-xs rounded-full bg-gray-100 text-gray-800">
-                                      +{notification.tags.length - 3} more
-                                    </span>
-                                  )}
-                                </div>
-                              )}
+                              
                               {/* Direct attachments display */}
                               {notification.attachments && notification.attachments.length > 0 && (
                                 <AttachmentsList attachments={notification.attachments} />
@@ -1722,11 +1548,6 @@ function AdminNotificationPanel() {
                               {isExpired(notification.expirationDate) && ' (Expired)'}
                               {!isExpired(notification.expirationDate) && isExpiringSoon(notification.expirationDate) && ' (Soon)'}
                             </div>
-                          </td>
-                          <td className="px-3 py-4 whitespace-nowrap">
-                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(notification.status)}`}>
-                              {normalizeStatus(notification.status)}
-                            </span>
                           </td>
                           <td className="px-3 py-4 whitespace-nowrap text-sm text-right space-x-1">
                             <button
@@ -1793,25 +1614,12 @@ function AdminNotificationPanel() {
                             <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getPriorityColor(notification.priority)}`}>
                               {notification.priority}
                             </span>
-                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(notification.status)}`}>
-                              {normalizeStatus(notification.status)}
-                            </span>
                           </div>
                         </div>
                         
                         <div className="mt-2 text-sm text-gray-500">
                           <p className="line-clamp-3">{notification.body}</p>
                         </div>
-                        
-                        {notification.tags && Array.isArray(notification.tags) && notification.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-3">
-                            {notification.tags.map((tag, idx) => (
-                              <span key={idx} className="px-1.5 py-0.5 text-xs rounded-full bg-blue-100 text-blue-800">
-                                {tag}
-                              </span>
-                            ))}
-                          </div>
-                        )}
                         
                         {/* Direct attachments display */}
                         {notification.attachments && notification.attachments.length > 0 && (
