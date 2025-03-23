@@ -61,26 +61,32 @@ export default function AddExaminer() {
 
     if (step === 1) {
       ["email", "fname", "lname"].forEach((field) => {
-        if (!formData[field].trim()) newErrors[field] = "Required";
+        if (!formData[field].trim()) newErrors[field] = "All fields are required";
       });
       if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
         newErrors.email = "Invalid email format";
       }
     } else if (step === 2) {
       ["position", "phone", "department"].forEach((field) => {
-        if (!formData[field].trim()) newErrors[field] = "Required";
+        if (!formData[field].trim()) newErrors[field] = "All fields are required";
       });
-      if (formData.phone && !/^\+?[\d\s-]{10,}$/.test(formData.phone)) {
-        newErrors.phone = "Invalid phone number";
+
+      const phone = formData.phone.trim(); // Ensure trimming
+      if (phone && !/^\d{10}$/.test(phone)) {
+        newErrors.phone = "Phone number must be exactly 10 digits";
       }
     } else if (step === 3) {
-      if (formData.courses.length === 0) newErrors.courses = "Select at least one course";
-      if (formData.modules.length === 0) newErrors.modules = "Select at least one module";
+      if (!formData.courses || formData.courses.length === 0) 
+        newErrors.courses = "Select at least one course";
+      
+      if (!formData.modules || formData.modules.length === 0) 
+        newErrors.modules = "Select at least one module";
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  };
+};
+
   const ExaminerStatus = ({ examiner, handleAvailabilityChange }) => {
   return (
     <div className="flex items-center space-x-3">
