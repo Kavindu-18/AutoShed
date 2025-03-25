@@ -12,6 +12,8 @@ const examinerSchema = mongoose.Schema({
   modules: { type: Array, required: true },
   availability: { type: String, default:true },
   salary: { type: Number,default: 0 },
+  role: { type: String, default: "examiner" },
+  password: { type: String, required: true },
 });
 
 const Examiner = mongoose.model("Examiner", examinerSchema);
