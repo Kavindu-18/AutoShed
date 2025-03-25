@@ -1013,7 +1013,7 @@ function HomePage() {
               icon={<CalendarOutlined className="text-blue-600" />}
               title="Exam Scheduling"
               description="Schedule exams with automatic conflict detection and intuitive calendar interface."
-              linkTo="/exams"
+              linkTo="/login"
               color="blue"
             />
             
@@ -1021,7 +1021,7 @@ function HomePage() {
               icon={<FileTextOutlined className="text-emerald-600" />}
               title="Presentations"
               description="Organize and track presentations with comprehensive management tools."
-              linkTo="/presentations"
+              linkTo="/login"
               color="emerald"
             />
             
@@ -1029,7 +1029,7 @@ function HomePage() {
               icon={<UserOutlined className="text-purple-600" />}
               title="Student Management"
               description="Track student progress, manage profiles, and monitor examination status."
-              linkTo="/students"
+              linkTo="/login"
               color="purple"
             />
             
@@ -1037,7 +1037,7 @@ function HomePage() {
               icon={<TeamOutlined className="text-amber-600" />}
               title="Examiner Management"
               description="Manage examiners, their availability, and specialization areas."
-              linkTo="/examiners"
+              linkTo="/login"
               color="amber"
             />
           </div>
@@ -1103,7 +1103,7 @@ function HomePage() {
               Join our platform today and simplify your exam scheduling and presentation management
             </p>
             <div className="flex flex-col sm:flex-row justify-center gap-4 sm:gap-6">
-              <Link to="/register">
+              <Link to="/login">
                 <Button 
                   type="primary" 
                   size="large" 
@@ -1142,9 +1142,9 @@ function HomePage() {
               <h4 className="font-semibold mb-4 text-lg">Quick Links</h4>
               <ul className="space-y-3 text-gray-400">
                 <li><Link to="/" className="hover:text-white transition-colors">Home</Link></li>
-                <li><Link to="/presentations" className="hover:text-white transition-colors">Presentations</Link></li>
-                <li><Link to="/students" className="hover:text-white transition-colors">Students</Link></li>
-                <li><Link to="/examiners" className="hover:text-white transition-colors">Examiners</Link></li>
+                <li><Link to="/presentationdetails" className="hover:text-white transition-colors">Presentations</Link></li>
+                <li><Link to="/Studentdetails" className="hover:text-white transition-colors">Students</Link></li>
+                <li><Link to="/examinerdetails" className="hover:text-white transition-colors">Examiners</Link></li>
               </ul>
             </Col>
             <Col xs={24} sm={12} md={8} lg={8}>
