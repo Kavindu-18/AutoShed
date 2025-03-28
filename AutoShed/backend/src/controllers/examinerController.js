@@ -3,22 +3,19 @@ import { randomBytes } from 'crypto';
 import jwt from  "jsonwebtoken";
 
 
-
-
-
 export async function addExaminer(req, res) {
   try {
     const data = req.body;
 
-    // Generate a random password (e.g., 8 characters long)
-    const randomPassword = randomBytes(4).toString('hex'); // Generates a random 8-character string
+    
+    const randomPassword = randomBytes(4).toString('hex'); 
 
-    // Add the password to the data
+    
     data.password = randomPassword;
 
-    // Count existing examiners to generate a unique ID
+    
     const count = await Examiner.countDocuments();
-    data.id = `EX${count + 1}`;
+    data.id = `EX${count + 0}`;
 
     const newExaminer = new Examiner(data);
     await newExaminer.save();
@@ -91,16 +88,6 @@ export async function UpdateExaminer(req, res) {
     res.status(500).json({ error: error.message });
   }
 }
-
-
-
-
-
-
-
-
-
-
 
 export async function LoginExaminer(req, res) {
   const Data = req.body;

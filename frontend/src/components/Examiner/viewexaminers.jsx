@@ -25,8 +25,10 @@ export default function ViewExaminers() {
         return response.json();
       })
       .then((data) => {
-        setExaminers(data);
-        setFilteredExaminers(data);
+        // Filter examiners whose role is "examiner"
+        const filteredData = data.filter((examiner) => examiner.role === "examiner");
+        setExaminers(filteredData);
+        setFilteredExaminers(filteredData);
       })
       .catch((error) => console.error("Error fetching examiners:", error));
   }, []);

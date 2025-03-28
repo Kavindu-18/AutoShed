@@ -10,6 +10,7 @@ import ViewExaminers from "./components/Examiner/viewexaminers";
 import ExaminerProfile from "./components/Examiner/ExaminerProfile";
 import UpdateExaminer from "./components/Examiner/updateexaminer";
 import GenerateReport from "./components/Examiner/Report";
+import HomePageExaminer from "./pages/HomePage Examiner";
 
 
 
@@ -22,6 +23,7 @@ function App() {
     <div className="min-h-screen bg-gray-100">
       <Routes>
         <Route path="/" element={<HomePage />} />
+        <Route path="/" element={<HomePageExaminer/>} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path ="/calendar" element={<Calendar />} />

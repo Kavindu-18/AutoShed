@@ -13,7 +13,9 @@ export default function GenerateReport() {
     fetch("http://localhost:5001/api/examiners")
       .then((response) => response.json())
       .then((data) => {
-        setExaminers(data);
+        // Filter examiners by role == "examiner"
+        const filteredExaminers = data.filter(examiner => examiner.role === "examiner");
+        setExaminers(filteredExaminers);
         setLoading(false);
       })
       .catch((error) => {
