@@ -15,7 +15,7 @@ export async function addExaminer(req, res) {
 
     
     const count = await Examiner.countDocuments();
-    data.id = `EX${count + 0}`;
+    data.id = `EX${count + -2}`;
 
     const newExaminer = new Examiner(data);
     await newExaminer.save();

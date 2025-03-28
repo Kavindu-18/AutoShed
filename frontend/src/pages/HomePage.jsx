@@ -1110,7 +1110,7 @@ function HomePage() {
                   className="bg-white text-blue-700 hover:bg-blue-50 hover:text-blue-800 border-0 shadow-lg hover:shadow-xl transition-all w-full sm:w-auto"
                   style={{ height: '50px', padding: '0 32px', borderRadius: '8px', fontSize: '16px' }}
                 >
-                  Create Account
+                  Welcome to AutoShed
                 </Button>
               </Link>
               <Link to="/login">
@@ -1142,9 +1142,9 @@ function HomePage() {
               <h4 className="font-semibold mb-4 text-lg">Quick Links</h4>
               <ul className="space-y-3 text-gray-400">
                 <li><Link to="/" className="hover:text-white transition-colors">Home</Link></li>
-                <li><Link to="/presentationdetails" className="hover:text-white transition-colors">Presentations</Link></li>
-                <li><Link to="/Studentdetails" className="hover:text-white transition-colors">Students</Link></li>
-                <li><Link to="/examinerdetails" className="hover:text-white transition-colors">Examiners</Link></li>
+                <li><Link to="/login" className="hover:text-white transition-colors">Presentations</Link></li>
+                <li><Link to="/login" className="hover:text-white transition-colors">Students</Link></li>
+                <li><Link to="/login" className="hover:text-white transition-colors">Examiners</Link></li>
               </ul>
             </Col>
             <Col xs={24} sm={12} md={8} lg={8}>
