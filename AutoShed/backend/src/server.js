@@ -11,6 +11,7 @@ import http from "http";
 import UserRouter from "./routes/userRoutes.js"
 import examinerRoutes from "./routes/examinerRoutes.js";
 import presentationRoutes from "./routes/presentationRoutes.js";
+import studentRoutes from "./routes/studentRoutes.js";
 
 dotenv.config();
 const app = express();
@@ -54,6 +55,7 @@ connectDB();
 app.use("/api/users",UserRouter)
 app.use("/api/examiners", examinerRoutes);
 app.use("/api/presentations", presentationRoutes);
+app.use("/api/students", studentRoutes);
 
 const PORT = process.env.PORT || 5001;
 httpServer.listen(PORT, () => console.log(`Server running on port ${PORT}`));

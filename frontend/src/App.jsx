@@ -11,6 +11,8 @@ import ExaminerProfile from "./components/Examiner/ExaminerProfile";
 import UpdateExaminer from "./components/Examiner/updateexaminer";
 import GenerateReport from "./components/Examiner/Report";
 import HomePageExaminer from "./pages/HomePage Examiner";
+import StudentForm from "./components/StudentForm";
+import StudentList from "./components/StudentList";
 
 
 
@@ -33,6 +35,9 @@ function App() {
         <Route path="/examiners/view/:id" element={<ExaminerProfile />} />
         <Route path="/examiners/edit/:id" element={<UpdateExaminer />} />
         <Route path="/generate-report" element={<GenerateReport />} />
+
+        <Route path="/add-student" element={<StudentForm />} />
+        <Route path="/students" element={<StudentList />} />
         
     
       </Routes>

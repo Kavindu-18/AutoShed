@@ -18,6 +18,9 @@ function Sidebar() {
         <Menu.Item key="examiner" icon={<SolutionOutlined />}> 
           <Link to="/examiner">Examiner Management</Link>
         </Menu.Item>
+        <Menu.Item key="student" icon={<SolutionOutlined />}> 
+          <Link to="/add-student">Student Management</Link>
+        </Menu.Item>
       </Menu>
     </Sider>
   );
