@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Routes, Route } from "react-router-dom";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/Loginpage";
+import AdminLoginPage from "./pages/adminlogin";
 import Dashboard from "./pages/DashboardPage";
 import Calendar from "./components/Calendar";
 import Examiner from "./pages/ExaminerDashboard";
@@ -25,7 +26,8 @@ function App() {
     <div className="min-h-screen bg-gray-100">
       <Routes>
         <Route path="/" element={<HomePage />} />
-        <Route path="/" element={<HomePageExaminer/>} />
+        <Route path="/examinerprofile" element={<HomePageExaminer/>} />
+        <Route path="/admin-login" element={<AdminLoginPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path ="/calendar" element={<Calendar />} />
@@ -36,9 +38,11 @@ function App() {
         <Route path="/examiners/edit/:id" element={<UpdateExaminer />} />
         <Route path="/generate-report" element={<GenerateReport />} />
 
+        
+
         <Route path="/add-student" element={<StudentForm />} />
         <Route path="/students" element={<StudentList />} />
-        
+       
     
       </Routes>
     </div>

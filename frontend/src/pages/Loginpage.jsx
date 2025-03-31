@@ -23,11 +23,9 @@ const LoginExaminer = ({ onClose }) => {
         localStorage.setItem("examinerToken", response.data.token);
 
         // Check if req.user is 'examiner' and role is 'admin'
-        if (response.data.examiner.role === "admin") {
-          navigate("/dashboard");  // Redirect to the dashboard if the user is an admin
-        } else {
-          navigate("/");  // Otherwise, navigate to the home page
-        }
+        if (response.data.examiner.role === "examiner") {
+          navigate("/examinerprofile");  // Redirect to the dashboard if the user is an admin
+        } 
 
         alert("Login Successful");
         onClose();
