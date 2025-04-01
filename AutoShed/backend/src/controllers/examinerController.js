@@ -15,8 +15,6 @@ export async function addExaminer(req, res) {
     data.password = randomPassword;
 
     
-    const count = await Examiner.countDocuments();
-    data.id = `EX${count + -2}`;
 
     // Count existing examiners to generate a unique ID
     const count = await Examiner.countDocuments();

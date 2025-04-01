@@ -24,8 +24,7 @@ const examinerSchema = mongoose.Schema({
 const Examiner = mongoose.model("Examiner", examinerSchema);
 export default Examiner;
 
-});
 
-const Examiner = mongoose.model("Examiner", examinerSchema);
-export default Examiner;
+
+
 
