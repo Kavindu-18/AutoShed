@@ -6,6 +6,7 @@ const bookingSchema = new mongoose.Schema({
   date: { type: Date, required: true },
   time: { type: String, required: true },
   isBooked: { type: Boolean, default: false },
+  createdAt: { type: Date, default: Date.now }
 });
 
 // export default mongoose.exports = mongoose.model("Booking", bookingSchema);
