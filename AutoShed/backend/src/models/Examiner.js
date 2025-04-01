@@ -1,11 +1,7 @@
 import mongoose from "mongoose";
 
 const examinerSchema = mongoose.Schema({
-
   id: { type: String, required: true, unique: true },
-
-  id: { type: String,  },
-
   email:{ type: String, required: true,},
   fname: { type: String, required: true },
   lname: { type: String, required: true },
@@ -16,15 +12,9 @@ const examinerSchema = mongoose.Schema({
   modules: { type: Array, required: true },
   availability: { type: String, default:true },
   salary: { type: Number,default: 0 },
-
   role: { type: String, default: "examiner" },
   password: { type: String, required: true },
 });
 
 const Examiner = mongoose.model("Examiner", examinerSchema);
 export default Examiner;
-
-
-
-
-
