@@ -21,16 +21,20 @@ const Calendar = () => {
     fetchEvents();
   }, []);
 
-  // Fetch existing bookings
+  // ✅ Fetch existing bookings & format them correctly
   const fetchEvents = async () => {
     try {
       const response = await axios.get("http://localhost:5001/api/bookings");
+
+      // ✅ Ensure correct event formatting for FullCalendar
       const formattedEvents = response.data.map((event) => ({
         id: event._id,
         title: `Examiner ${event.examinerId}`,
-        start: `${event.date}T${event.time}`, 
-        backgroundColor: event.isBooked ? "red" : "green", 
+        start: `${event.date}T${event.time}`, // Ensures correct date & time format
+        backgroundColor: event.isBooked ? "red" : "green",
+        borderColor: event.isBooked ? "darkred" : "darkgreen", // Enhancing UI visibility
       }));
+
       setEvents(formattedEvents);
     } catch (error) {
       console.error("Error fetching events:", error);
@@ -38,23 +42,27 @@ const Calendar = () => {
     }
   };
 
-  // Handle slot selection in the calendar
+  // ✅ Handle time slot selection in the calendar
   const handleSelect = (info) => {
-    const selectedDateTime = moment(info.start);
+    const selectedDateTime = moment(info.start); // ✅ Stores full date + time
     setSelectedSlot(selectedDateTime);
 
-    // Pre-fill the form with date & time
+    // ✅ Pre-fill the form with selected date & time
     form.setFieldsValue({
-      time: selectedDateTime,
+      time: selectedDateTime, // ✅ Ensure correct binding with TimePicker
     });
 
     setModalVisible(true);
   };
 
-  // Handle form submission for booking
+  // ✅ Handle form submission for booking
   const handleSubmit = async (values) => {
     try {
-      const selectedDateTime = moment(selectedSlot);
+      // ✅ Ensure selected date & time are combined correctly
+      const selectedDateTime = moment(selectedSlot).set({
+        hour: moment(values.time).hour(),
+        minute: moment(values.time).minute(),
+      });
 
       if (selectedDateTime.isBefore(moment())) {
         message.error("You cannot book a past time slot.");
@@ -63,16 +71,29 @@ const Calendar = () => {
 
       const payload = {
         examinerId: values.examinerId,
-        date: selectedDateTime.format("YYYY-MM-DD"),
-        time: selectedDateTime.format("HH:mm"),
+        date: selectedDateTime.format("YYYY-MM-DD"), // ✅ Extract only date
+        time: selectedDateTime.format("HH:mm"), // ✅ Extract only time
         isBooked: true,
       };
 
-      await axios.post("http://localhost:5001/api/bookings", payload);
+      const response = await axios.post("http://localhost:5001/api/bookings", payload);
       message.success("Slot booked successfully!");
 
-      fetchEvents(); 
+      // Add the new event with the correct ID from the response
+      const newEvent = {
+        id: response.data._id || Math.random().toString(36).substr(2, 9),
+        title: `Examiner ${values.examinerId}`,
+        start: selectedDateTime.format("YYYY-MM-DDTHH:mm"),
+        backgroundColor: "red",
+        borderColor: "darkred",
+      };
+
+      // Update the events state with the new event
+      setEvents(prevEvents => [...prevEvents, newEvent]);
+      
+      // Close the modal
       setModalVisible(false);
+      form.resetFields();
     } catch (error) {
       console.error("Error booking slot:", error);
       message.error("Failed to book slot.");
@@ -90,9 +111,10 @@ const Calendar = () => {
             <FullCalendar
               plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
               initialView="timeGridWeek"
-              selectable={true} // Enable time slot selection
-              select={handleSelect} // Handle slot selection
-              events={events} 
+              selectable={true} // ✅ Enables time slot selection
+              select={handleSelect} // ✅ Uses select instead of dateClick
+              events={events} // ✅ Passes formatted event data
+              eventColor="red" // ✅ Default color for all booked slots
               height="600px"
             />
           </div>
@@ -111,6 +133,7 @@ const Calendar = () => {
             <Input />
           </Form.Item>
           <Form.Item name="time" label="Time" rules={[{ required: true }]}>
+            {/* ✅ Ensure TimePicker binds correctly */}
             <TimePicker format="HH:mm" />
           </Form.Item>
           <Button type="primary" htmlType="submit">
