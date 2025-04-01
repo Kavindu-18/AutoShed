@@ -1,7 +1,5 @@
 import Presentation from "../models/Presentation.js";
-import {io} from "../server.js";
 
-// ✅ Book a presentation slot
 export const bookPresentation = async (req, res) => {
   try {
     const { examinerId, date, time } = req.body;
@@ -14,9 +12,6 @@ export const bookPresentation = async (req, res) => {
 
     const presentation = new Presentation({ examinerId, date, time });
     await presentation.save();
-
-    // Emit real-time update
-    io.emit("scheduleUpdate", { message: "New presentation scheduled" });
 
     res.status(201).json({ message: "Presentation scheduled successfully" });
   } catch (error) {
@@ -37,9 +32,6 @@ export const reschedulePresentation = async (req, res) => {
     presentation.date = date;
     presentation.time = time;
     await presentation.save();
-
-    // Emit real-time update
-    io.emit("scheduleUpdate", { message: "Presentation rescheduled" });
 
     res.json({ message: "Presentation rescheduled successfully" });
   } catch (error) {

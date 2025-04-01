@@ -3,14 +3,12 @@ import { Layout, Modal, Button, Form, Input, TimePicker, message } from "antd";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
-import interactionPlugin from "@fullcalendar/interaction"; // Needed for event click
+import interactionPlugin from "@fullcalendar/interaction";
 import axios from "axios";
-import io from "socket.io-client";
 import Sidebar from "../components/Sidebar";
 import moment from "moment";
 
 const { Header, Content } = Layout;
-const socket = io("http://localhost:5001");
 
 const Calendar = () => {
   const [events, setEvents] = useState([]);
@@ -18,49 +16,66 @@ const Calendar = () => {
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [form] = Form.useForm();
 
+  // Fetch bookings from backend
   useEffect(() => {
     fetchEvents();
-    socket.on("scheduleUpdate", fetchEvents);
-    return () => socket.off("scheduleUpdate");
   }, []);
 
+  // Fetch existing bookings
   const fetchEvents = async () => {
     try {
-      const response = await axios.get("http://localhost:5001/api/presentations");
+      const response = await axios.get("http://localhost:5001/api/bookings");
       const formattedEvents = response.data.map((event) => ({
         id: event._id,
         title: `Examiner ${event.examinerId}`,
-        start: event.date + "T" + event.time,
-        backgroundColor: event.isBooked ? "red" : "green",
+        start: `${event.date}T${event.time}`, 
+        backgroundColor: event.isBooked ? "red" : "green", 
       }));
       setEvents(formattedEvents);
     } catch (error) {
       console.error("Error fetching events:", error);
+      message.error("Failed to load events.");
     }
   };
 
-  const handleDateClick = (info) => {
-    setSelectedSlot(info.dateStr);
+  // Handle slot selection in the calendar
+  const handleSelect = (info) => {
+    const selectedDateTime = moment(info.start);
+    setSelectedSlot(selectedDateTime);
+
+    // Pre-fill the form with date & time
+    form.setFieldsValue({
+      time: selectedDateTime,
+    });
+
     setModalVisible(true);
   };
 
+  // Handle form submission for booking
   const handleSubmit = async (values) => {
     try {
+      const selectedDateTime = moment(selectedSlot);
+
+      if (selectedDateTime.isBefore(moment())) {
+        message.error("You cannot book a past time slot.");
+        return;
+      }
+
       const payload = {
         examinerId: values.examinerId,
-        date: selectedSlot,
-        time: moment(values.time).format("HH:mm"),
+        date: selectedDateTime.format("YYYY-MM-DD"),
+        time: selectedDateTime.format("HH:mm"),
         isBooked: true,
       };
 
       await axios.post("http://localhost:5001/api/bookings", payload);
       message.success("Slot booked successfully!");
-      fetchEvents();
+
+      fetchEvents(); 
       setModalVisible(false);
-      socket.emit("scheduleUpdate");
     } catch (error) {
+      console.error("Error booking slot:", error);
       message.error("Failed to book slot.");
-      console.error(error);
     }
   };
 
@@ -75,8 +90,9 @@ const Calendar = () => {
             <FullCalendar
               plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
               initialView="timeGridWeek"
-              events={events}
-              dateClick={handleDateClick}
+              selectable={true} // Enable time slot selection
+              select={handleSelect} // Handle slot selection
+              events={events} 
               height="600px"
             />
           </div>
