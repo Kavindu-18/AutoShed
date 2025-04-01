@@ -5,9 +5,15 @@ import bodyparser from "body-parser";
 import jwt from "jsonwebtoken";
 import morgan from "morgan";
 import connectDB from "./config/db.js"; // Database connection
+
 import UserRouter from "./routes/userRoutes.js";
 import examinerRoutes from "./routes/examinerRoutes.js";
 import studentRoutes from "./routes/studentRoutes.js";
+
+import userRoutes from "./routes/userRoutes.js";
+import examinerRoutes from "./routes/examinerRoutes.js";
+import presentationRoutes from "./routes/presentationRoutes.js";
+
 import bookingRoutes from "./routes/bookingRoutes.js";
 
 dotenv.config();
@@ -41,8 +47,12 @@ connectDB();
 // Routes
 app.use("/api/users", UserRouter);
 app.use("/api/examiners", examinerRoutes);
+
 // app.use("/api/presentations", presentationRoutes);
 app.use("/api/students", studentRoutes);
+
+app.use("/api/presentations", presentationRoutes);
+
 app.use("/api/bookings", bookingRoutes);
 
 const PORT = process.env.PORT || 5001;
