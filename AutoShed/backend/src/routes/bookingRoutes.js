@@ -14,4 +14,8 @@ router.put("/:id", updateBooking);
 // Delete a booking
 router.delete("/:id", deleteBooking);
 
+
 export default router;
+
+export default router;
+

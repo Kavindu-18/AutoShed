@@ -1,17 +1,36 @@
 import Examiner from "../models/Examiner.js";
+import { randomBytes } from 'crypto';
+import jwt from  "jsonwebtoken";
+
 
 export async function addExaminer(req, res) {
   try {
     const data = req.body;
 
+
+    
+    const randomPassword = randomBytes(4).toString('hex'); 
+
+    
+    data.password = randomPassword;
+
+    
+    const count = await Examiner.countDocuments();
+    data.id = `EX${count + -2}`;
+
     // Count existing examiners to generate a unique ID
     const count = await Examiner.countDocuments();
     data.id = `EX${count + 1}`;
 
+
     const newExaminer = new Examiner(data);
     await newExaminer.save();
 
+
+    res.status(201).json({ message: "Examiner added successfully", examiner: newExaminer, password: randomPassword });
+
     res.status(201).json({ message: "Examiner added successfully", examiner: newExaminer });
+
   } catch (error) {
     res.status(500).json({ message: "Examiner adding failed", error: error.message });
   }
@@ -81,4 +100,32 @@ export async function UpdateExaminer(req, res) {
 }
 
 
+export async function LoginExaminer(req, res) {
+  const Data = req.body;
+
+  Examiner.findOne({
+      email : Data.email
+  }).then((examiner) => {
+      if(examiner){
+          if(examiner.password === Data.password){
+
+              const token = jwt.sign({
+                  id : examiner.id,
+                  email : examiner.email,
+                  role : examiner.role
+              }, process.env.JWT_SECRET);  
+              
+              res.send({message : "Login Successful", token: token, examiner : examiner});
+              
+          }else{
+              res.send({message : "Password is incorrect"});
+          }
+      }else{
+          res.send({message : "User not registered"});
+      }
+  })
+}
+
+
   
+
