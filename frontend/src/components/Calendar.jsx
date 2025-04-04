@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Layout, Modal, Button, Form, Input, TimePicker, message, Tooltip, Tag, Space } from "antd";
+import { Layout, Modal, Button, Form, Input, TimePicker, message, Tooltip, Tag, Space, Popconfirm } from "antd";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
@@ -18,6 +18,9 @@ const Calendar = () => {
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [calendarView, setCalendarView] = useState("timeGridWeek");
   const [form] = Form.useForm();
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [selectedEventId, setSelectedEventId] = useState(null);
+  const [selectedEvent, setSelectedEvent] = useState(null);
 
   // Fetch bookings from backend
   useEffect(() => {
@@ -30,17 +33,25 @@ const Calendar = () => {
       setLoading(true);
       const response = await axios.get("http://localhost:5001/api/bookings");
 
+      // Log API response for debugging
+      console.log("API Response:", response.data);
+
       // Ensure correct event formatting for FullCalendar
-      const formattedEvents = response.data.map((event) => ({
-        id: event._id,
-        title: `Examiner ${event.examinerId}`,
-        start: `${event.date}T${event.time}`,
-        backgroundColor: event.isBooked ? "#f5222d" : "#52c41a",
-        borderColor: event.isBooked ? "#a8071a" : "#237804",
-        extendedProps: {
-          examinerId: event.examinerId
-        }
-      }));
+      const formattedEvents = response.data.map((event) => {
+        const eventDate = moment(event.date).format("YYYY-MM-DD");
+        return {
+          id: event._id,
+          title: `Examiner ${event.examinerId}`,
+          start: `${eventDate}T${event.time}`,
+          backgroundColor: event.isBooked ? "#f5222d" : "#52c41a",
+          borderColor: event.isBooked ? "#a8071a" : "#237804",
+          extendedProps: {
+            examinerId: event.examinerId,
+            rawId: event._id, // Store the original ID from the database
+            originalData: { ...event } // Store the original data for reference
+          }
+        };
+      });
 
       setEvents(formattedEvents);
     } catch (error) {
@@ -53,6 +64,7 @@ const Calendar = () => {
 
   // Handle time slot selection in the calendar
   const handleSelect = (info) => {
+    resetForm();
     const selectedDateTime = moment(info.start);
     setSelectedSlot(selectedDateTime);
 
@@ -62,65 +74,198 @@ const Calendar = () => {
       date: selectedDateTime.format("YYYY-MM-DD"),
     });
 
+    setIsEditMode(false);
+    setSelectedEvent(null);
+    setSelectedEventId(null);
     setModalVisible(true);
+  };
+
+  // Reset form and editing state
+  const resetForm = () => {
+    form.resetFields();
+    setIsEditMode(false);
+    setSelectedEventId(null);
+    setSelectedEvent(null);
   };
 
   // Handle form submission for booking
   const handleSubmit = async (values) => {
     try {
       setLoading(true);
-      // Ensure selected date & time are combined correctly
-      const selectedDateTime = moment(selectedSlot).set({
-        hour: moment(values.time).hour(),
-        minute: moment(values.time).minute(),
-      });
+      
+      // Get the selected time
+      const selectedTime = moment(values.time).format("HH:mm");
+      let payload;
+      let response;
 
-      if (selectedDateTime.isBefore(moment())) {
-        message.error("You cannot book a past time slot.");
-        return;
-      }
+      if (isEditMode && selectedEventId) {
+        // Ensure we have the correct ID for the update
+        const eventIdToUpdate = selectedEventId;
+        
+        // Log before update for debugging
+        console.log("Updating event with ID:", eventIdToUpdate);
+        
+        // Update existing booking
+        payload = {
+          examinerId: values.examinerId,
+          date: values.date,
+          time: selectedTime,
+          isBooked: true,
+        };
 
-      const payload = {
-        examinerId: values.examinerId,
-        date: selectedDateTime.format("YYYY-MM-DD"),
-        time: selectedDateTime.format("HH:mm"),
-        isBooked: true,
-      };
-
-      const response = await axios.post("http://localhost:5001/api/bookings", payload);
-      message.success("Slot booked successfully!");
-
-      // Add the new event with the correct ID from the response
-      const newEvent = {
-        id: response.data._id || Math.random().toString(36).substr(2, 9),
-        title: `Examiner ${values.examinerId}`,
-        start: selectedDateTime.format("YYYY-MM-DDTHH:mm"),
-        backgroundColor: "#f5222d",
-        borderColor: "#a8071a",
-        extendedProps: {
-          examinerId: values.examinerId
+        try {
+          response = await axios.put(`http://localhost:5001/api/bookings/${eventIdToUpdate}`, payload);
+          
+          // Log successful response
+          console.log("Update response:", response.data);
+          
+          message.success("Slot updated successfully!");
+          
+          // Update the event in state with careful ID matching
+          setEvents(prevEvents => prevEvents.map(event => {
+            // Compare with the stored ID
+            if (event.id === eventIdToUpdate) {
+              console.log("Matched event for update:", event);
+              return {
+                ...event,
+                title: `Examiner ${values.examinerId}`,
+                start: `${values.date}T${selectedTime}`,
+                extendedProps: {
+                  ...event.extendedProps,
+                  examinerId: values.examinerId
+                }
+              };
+            }
+            return event;
+          }));
+        } catch (updateError) {
+          console.error("Error updating booking:", updateError);
+          message.error("Failed to update slot. Server error: " + (updateError.response?.data?.message || updateError.message));
+          return; // Exit early on update error
         }
-      };
+      } else {
+        // Create new booking
+        // Ensure selected date & time are combined correctly
+        const selectedDateTime = moment(selectedSlot).set({
+          hour: moment(values.time).hour(),
+          minute: moment(values.time).minute(),
+        });
 
-      // Update the events state with the new event
-      setEvents(prevEvents => [...prevEvents, newEvent]);
+        if (selectedDateTime.isBefore(moment())) {
+          message.error("You cannot book a past time slot.");
+          return;
+        }
+
+        payload = {
+          examinerId: values.examinerId,
+          date: selectedDateTime.format("YYYY-MM-DD"),
+          time: selectedDateTime.format("HH:mm"),
+          isBooked: true,
+        };
+
+        try {
+          response = await axios.post("http://localhost:5001/api/bookings", payload);
+          message.success("Slot booked successfully!");
+
+          // Log successful create
+          console.log("Created booking:", response.data);
+
+          // Add the new event with the correct ID from the response
+          const newEvent = {
+            id: response.data._id || Math.random().toString(36).substr(2, 9),
+            title: `Examiner ${values.examinerId}`,
+            start: selectedDateTime.format("YYYY-MM-DDTHH:mm"),
+            backgroundColor: "#f5222d",
+            borderColor: "#a8071a",
+            extendedProps: {
+              examinerId: values.examinerId,
+              rawId: response.data._id,
+              originalData: response.data
+            }
+          };
+
+          // Update the events state with the new event
+          setEvents(prevEvents => [...prevEvents, newEvent]);
+        } catch (createError) {
+          console.error("Error creating booking:", createError);
+          message.error("Failed to book slot. Server error: " + (createError.response?.data?.message || createError.message));
+          return; // Exit early on create error
+        }
+      }
       
       // Close the modal
       setModalVisible(false);
-      form.resetFields();
+      resetForm();
     } catch (error) {
-      console.error("Error booking slot:", error);
-      message.error("Failed to book slot.");
+      console.error("Error with booking slot:", error);
+      message.error(isEditMode ? "Failed to update slot." : "Failed to book slot.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Event render for better display
+  // Handle event click for editing existing booking
+  const handleEventClick = (info) => {
+    // Capture the full event object for reference
+    const eventObj = info.event;
+    const eventId = eventObj.id;
+    const eventStart = moment(eventObj.start);
+    const examinerId = eventObj.extendedProps.examinerId;
+    
+    console.log("Clicked on event:", {
+      id: eventId,
+      extendedProps: eventObj.extendedProps,
+      start: eventStart.format(),
+    });
+
+    // Set edit mode and selected event
+    setIsEditMode(true);
+    setSelectedEventId(eventId);
+    setSelectedEvent(eventObj);
+    
+    // Pre-fill form with event data
+    form.setFieldsValue({
+      examinerId: examinerId,
+      date: eventStart.format("YYYY-MM-DD"),
+      time: eventStart,
+    });
+    
+    setModalVisible(true);
+  };
+
+  // Handle delete booking
+  const handleDeleteBooking = async () => {
+    if (!selectedEventId) {
+      message.error("No booking selected for deletion");
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      console.log("Deleting booking with ID:", selectedEventId);
+      
+      // Send delete request to the API
+      await axios.delete(`http://localhost:5001/api/bookings/${selectedEventId}`);
+      
+      // Remove the event from state
+      setEvents(prevEvents => prevEvents.filter(event => event.id !== selectedEventId));
+      
+      message.success("Booking deleted successfully!");
+      setModalVisible(false);
+      resetForm();
+    } catch (error) {
+      console.error("Error deleting booking:", error);
+      message.error("Failed to delete booking. Server error: " + (error.response?.data?.message || error.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Event render for better display with edit indicator
   const renderEventContent = (eventInfo) => {
     return (
-      <Tooltip title={`Examiner ID: ${eventInfo.event.extendedProps.examinerId}`}>
-        <div className="p-1">
+      <Tooltip title={`Examiner ID: ${eventInfo.event.extendedProps.examinerId} (Click to edit/delete)`}>
+        <div className="p-1 cursor-pointer">
           <div className="font-semibold text-white">{eventInfo.timeText}</div>
           <div className="text-white text-sm truncate">{eventInfo.event.title}</div>
         </div>
@@ -176,6 +321,7 @@ const Calendar = () => {
               <Space>
                 <Tag color="green">Available</Tag>
                 <Tag color="red">Booked</Tag>
+                <div className="text-gray-500 text-sm">Click on a booking to edit/delete</div>
               </Space>
             </div>
             <FullCalendar
@@ -190,6 +336,7 @@ const Calendar = () => {
               select={handleSelect}
               events={events}
               eventContent={renderEventContent}
+              eventClick={handleEventClick}
               height="700px"
               loading={loading}
               nowIndicator={true}
@@ -207,26 +354,51 @@ const Calendar = () => {
         </Content>
       </Layout>
 
-      {/* Booking Modal */}
+      {/* Booking/Editing Modal */}
       <Modal
-        title="Book a Slot"
+        title={isEditMode ? "Edit Booking" : "Book a Slot"}
         open={modalVisible}
-        onCancel={() => setModalVisible(false)}
+        onCancel={() => {
+          setModalVisible(false);
+          resetForm();
+        }}
         footer={null}
       >
+        {isEditMode && selectedEventId && (
+          <div className="mb-4 p-2 bg-blue-50 rounded text-blue-800 text-sm">
+            Editing booking ID: {selectedEventId}
+          </div>
+        )}
+        
         <Form form={form} onFinish={handleSubmit} layout="vertical">
           <Form.Item name="examinerId" label="Examiner ID" rules={[{ required: true }]}>
             <Input placeholder="Enter examiner ID" />
           </Form.Item>
           <Form.Item name="date" label="Date">
-            <Input disabled />
+            <Input disabled={!isEditMode} />
           </Form.Item>
           <Form.Item name="time" label="Time" rules={[{ required: true }]}>
             <TimePicker format="HH:mm" minuteStep={15} />
           </Form.Item>
-          <Button type="primary" htmlType="submit" loading={loading} block>
-            Book Slot
-          </Button>
+          <div className="flex justify-between">
+            <Button type="primary" htmlType="submit" loading={loading}>
+              {isEditMode ? "Update Booking" : "Book Slot"}
+            </Button>
+            
+            {isEditMode && (
+              <Popconfirm
+                title="Delete this booking?"
+                description="Are you sure you want to delete this booking?"
+                onConfirm={handleDeleteBooking}
+                okText="Yes"
+                cancelText="No"
+              >
+                <Button danger loading={loading}>
+                  Delete Booking
+                </Button>
+              </Popconfirm>
+            )}
+          </div>
         </Form>
       </Modal>
     </Layout>
