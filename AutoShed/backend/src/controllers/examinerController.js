@@ -15,8 +15,6 @@ export async function addExaminer(req, res) {
     data.password = randomPassword;
 
     
-    const count = await Examiner.countDocuments();
-    data.id = `EX${count + -2}`;
 
     // Count existing examiners to generate a unique ID
     const count = await Examiner.countDocuments();
@@ -28,8 +26,6 @@ export async function addExaminer(req, res) {
 
 
     res.status(201).json({ message: "Examiner added successfully", examiner: newExaminer, password: randomPassword });
-
-    res.status(201).json({ message: "Examiner added successfully", examiner: newExaminer });
 
   } catch (error) {
     res.status(500).json({ message: "Examiner adding failed", error: error.message });

@@ -17,5 +17,5 @@ router.delete("/:id", deleteBooking);
 
 export default router;
 
-export default router;
+
 
