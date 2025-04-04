@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Layout, Modal, Button, Form, Input, TimePicker, message, Tooltip, Tag, Space, Popconfirm } from "antd";
+import { Layout, Modal, Button, Form, Input, TimePicker, message, Tooltip, Tag, Space, Popconfirm, Card, Typography, Spin } from "antd";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
@@ -8,19 +8,44 @@ import listPlugin from "@fullcalendar/list";
 import axios from "axios";
 import Sidebar from "../components/Sidebar";
 import moment from "moment";
+import { CalendarOutlined, UserOutlined, ClockCircleOutlined, EditOutlined, DeleteOutlined, ReloadOutlined } from '@ant-design/icons';
 
 const { Header, Content } = Layout;
+const { Title, Text } = Typography;
 
 const Calendar = () => {
   const [events, setEvents] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [fetchingEvents, setFetchingEvents] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [calendarView, setCalendarView] = useState("timeGridWeek");
   const [form] = Form.useForm();
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [stats, setStats] = useState({ total: 0, booked: 0, available: 0 });
+
+  // Color scheme
+  const colors = {
+    booked: { bg: "#f5222d", border: "#a8071a", text: "white" },
+    available: { bg: "#52c41a", border: "#237804", text: "white" },
+    primary: "#1890ff"
+  };
+
+  // Calculate statistics from events
+  const calculateStats = useCallback((eventsList) => {
+    const total = eventsList.length;
+    const booked = eventsList.filter(event => 
+      event.backgroundColor === colors.booked.bg || 
+      event.extendedProps?.originalData?.isBooked).length;
+    
+    setStats({
+      total,
+      booked,
+      available: total - booked
+    });
+  }, [colors.booked.bg]);
 
   // Fetch bookings from backend
   useEffect(() => {
@@ -30,11 +55,8 @@ const Calendar = () => {
   // Memoize fetchEvents to prevent unnecessary re-renders
   const fetchEvents = useCallback(async () => {
     try {
-      setLoading(true);
+      setFetchingEvents(true);
       const response = await axios.get("http://localhost:5001/api/bookings");
-
-      // Log API response for debugging
-      console.log("API Response:", response.data);
 
       // Ensure correct event formatting for FullCalendar
       const formattedEvents = response.data.map((event) => {
@@ -43,29 +65,39 @@ const Calendar = () => {
           id: event._id,
           title: `Examiner ${event.examinerId}`,
           start: `${eventDate}T${event.time}`,
-          backgroundColor: event.isBooked ? "#f5222d" : "#52c41a",
-          borderColor: event.isBooked ? "#a8071a" : "#237804",
+          backgroundColor: event.isBooked ? colors.booked.bg : colors.available.bg,
+          borderColor: event.isBooked ? colors.booked.border : colors.available.border,
+          textColor: event.isBooked ? colors.booked.text : colors.available.text,
           extendedProps: {
             examinerId: event.examinerId,
-            rawId: event._id, // Store the original ID from the database
-            originalData: { ...event } // Store the original data for reference
+            rawId: event._id,
+            originalData: { ...event }
           }
         };
       });
 
       setEvents(formattedEvents);
+      calculateStats(formattedEvents);
+      
     } catch (error) {
       console.error("Error fetching events:", error);
       message.error("Failed to load events.");
     } finally {
-      setLoading(false);
+      setFetchingEvents(false);
     }
-  }, []);
+  }, [calculateStats, colors]);
 
   // Handle time slot selection in the calendar
   const handleSelect = (info) => {
     resetForm();
     const selectedDateTime = moment(info.start);
+    
+    // Prevent booking past dates
+    if (selectedDateTime.isBefore(moment(), 'day')) {
+      message.warning("Cannot book past dates");
+      return;
+    }
+    
     setSelectedSlot(selectedDateTime);
 
     // Pre-fill the form with selected date & time
@@ -99,12 +131,6 @@ const Calendar = () => {
       let response;
 
       if (isEditMode && selectedEventId) {
-        // Ensure we have the correct ID for the update
-        const eventIdToUpdate = selectedEventId;
-        
-        // Log before update for debugging
-        console.log("Updating event with ID:", eventIdToUpdate);
-        
         // Update existing booking
         payload = {
           examinerId: values.examinerId,
@@ -114,18 +140,12 @@ const Calendar = () => {
         };
 
         try {
-          response = await axios.put(`http://localhost:5001/api/bookings/${eventIdToUpdate}`, payload);
-          
-          // Log successful response
-          console.log("Update response:", response.data);
-          
+          response = await axios.put(`http://localhost:5001/api/bookings/${selectedEventId}`, payload);
           message.success("Slot updated successfully!");
           
           // Update the event in state with careful ID matching
           setEvents(prevEvents => prevEvents.map(event => {
-            // Compare with the stored ID
-            if (event.id === eventIdToUpdate) {
-              console.log("Matched event for update:", event);
+            if (event.id === selectedEventId) {
               return {
                 ...event,
                 title: `Examiner ${values.examinerId}`,
@@ -140,8 +160,8 @@ const Calendar = () => {
           }));
         } catch (updateError) {
           console.error("Error updating booking:", updateError);
-          message.error("Failed to update slot. Server error: " + (updateError.response?.data?.message || updateError.message));
-          return; // Exit early on update error
+          message.error("Failed to update slot: " + (updateError.response?.data?.message || updateError.message));
+          return;
         }
       } else {
         // Create new booking
@@ -167,16 +187,14 @@ const Calendar = () => {
           response = await axios.post("http://localhost:5001/api/bookings", payload);
           message.success("Slot booked successfully!");
 
-          // Log successful create
-          console.log("Created booking:", response.data);
-
           // Add the new event with the correct ID from the response
           const newEvent = {
             id: response.data._id || Math.random().toString(36).substr(2, 9),
             title: `Examiner ${values.examinerId}`,
             start: selectedDateTime.format("YYYY-MM-DDTHH:mm"),
-            backgroundColor: "#f5222d",
-            borderColor: "#a8071a",
+            backgroundColor: colors.booked.bg,
+            borderColor: colors.booked.border,
+            textColor: colors.booked.text,
             extendedProps: {
               examinerId: values.examinerId,
               rawId: response.data._id,
@@ -185,11 +203,15 @@ const Calendar = () => {
           };
 
           // Update the events state with the new event
-          setEvents(prevEvents => [...prevEvents, newEvent]);
+          setEvents(prevEvents => {
+            const updatedEvents = [...prevEvents, newEvent];
+            calculateStats(updatedEvents);
+            return updatedEvents;
+          });
         } catch (createError) {
           console.error("Error creating booking:", createError);
-          message.error("Failed to book slot. Server error: " + (createError.response?.data?.message || createError.message));
-          return; // Exit early on create error
+          message.error("Failed to book slot: " + (createError.response?.data?.message || createError.message));
+          return;
         }
       }
       
@@ -212,12 +234,6 @@ const Calendar = () => {
     const eventStart = moment(eventObj.start);
     const examinerId = eventObj.extendedProps.examinerId;
     
-    console.log("Clicked on event:", {
-      id: eventId,
-      extendedProps: eventObj.extendedProps,
-      start: eventStart.format(),
-    });
-
     // Set edit mode and selected event
     setIsEditMode(true);
     setSelectedEventId(eventId);
@@ -242,20 +258,23 @@ const Calendar = () => {
     
     try {
       setLoading(true);
-      console.log("Deleting booking with ID:", selectedEventId);
       
       // Send delete request to the API
       await axios.delete(`http://localhost:5001/api/bookings/${selectedEventId}`);
       
       // Remove the event from state
-      setEvents(prevEvents => prevEvents.filter(event => event.id !== selectedEventId));
+      setEvents(prevEvents => {
+        const updatedEvents = prevEvents.filter(event => event.id !== selectedEventId);
+        calculateStats(updatedEvents);
+        return updatedEvents;
+      });
       
       message.success("Booking deleted successfully!");
       setModalVisible(false);
       resetForm();
     } catch (error) {
       console.error("Error deleting booking:", error);
-      message.error("Failed to delete booking. Server error: " + (error.response?.data?.message || error.message));
+      message.error("Failed to delete booking: " + (error.response?.data?.message || error.message));
     } finally {
       setLoading(false);
     }
@@ -263,11 +282,15 @@ const Calendar = () => {
 
   // Event render for better display with edit indicator
   const renderEventContent = (eventInfo) => {
+    const isBooked = eventInfo.event.backgroundColor === colors.booked.bg;
     return (
-      <Tooltip title={`Examiner ID: ${eventInfo.event.extendedProps.examinerId} (Click to edit/delete)`}>
+      <Tooltip title={`Examiner ${eventInfo.event.extendedProps.examinerId} (${isBooked ? 'Booked' : 'Available'})`}>
         <div className="p-1 cursor-pointer">
-          <div className="font-semibold text-white">{eventInfo.timeText}</div>
-          <div className="text-white text-sm truncate">{eventInfo.event.title}</div>
+          <div className="font-semibold">{eventInfo.timeText}</div>
+          <div className="text-sm truncate flex items-center">
+            <UserOutlined className="mr-1" />
+            {eventInfo.event.title}
+          </div>
         </div>
       </Tooltip>
     );
@@ -283,106 +306,176 @@ const Calendar = () => {
       <Sidebar />
       <Layout>
         <Header className="bg-white shadow-md px-6 flex items-center justify-between">
-          <div className="text-xl font-semibold">Examiner Calendar</div>
+          <div className="flex items-center">
+            <CalendarOutlined className="text-xl mr-2" />
+            <Title level={4} style={{ margin: 0 }}>Examiner Calendar</Title>
+          </div>
           <Space>
             <Button 
               type={calendarView === "timeGridDay" ? "primary" : "default"} 
               onClick={() => handleViewChange("timeGridDay")}
+              icon={<CalendarOutlined />}
             >
               Day
             </Button>
             <Button 
               type={calendarView === "timeGridWeek" ? "primary" : "default"} 
               onClick={() => handleViewChange("timeGridWeek")}
+              icon={<CalendarOutlined />}
             >
               Week
             </Button>
             <Button 
               type={calendarView === "dayGridMonth" ? "primary" : "default"} 
               onClick={() => handleViewChange("dayGridMonth")}
+              icon={<CalendarOutlined />}
             >
               Month
             </Button>
             <Button 
               type={calendarView === "listWeek" ? "primary" : "default"} 
               onClick={() => handleViewChange("listWeek")}
+              icon={<CalendarOutlined />}
             >
               List
             </Button>
-            <Button type="default" onClick={fetchEvents}>
+            <Button 
+              type="default" 
+              onClick={fetchEvents} 
+              icon={<ReloadOutlined />}
+              loading={fetchingEvents}
+            >
               Refresh
             </Button>
           </Space>
         </Header>
-        <Content className="p-6">
-          <div className="p-6 bg-white shadow-md rounded-lg">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold">Examiner Availability Calendar</h2>
-              <Space>
-                <Tag color="green">Available</Tag>
-                <Tag color="red">Booked</Tag>
-                <div className="text-gray-500 text-sm">Click on a booking to edit/delete</div>
-              </Space>
+        <Content className="p-6 bg-gray-50">
+          <div className="space-y-6">
+            {/* Stats Cards - Now at the top */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card className="shadow-md">
+                <Statistic 
+                  title="Overview" 
+                  total={stats.total} 
+                  booked={stats.booked} 
+                  available={stats.available} 
+                  colors={colors}
+                />
+              </Card>
+              <Card className="shadow-md">
+                <div className="text-base font-medium mb-2">Legend</div>
+                <Space direction="vertical" className="w-full">
+                  <Tag className="w-full" color="green">
+                    <div className="flex justify-between">
+                      <span>Available</span>
+                      <span>{stats.available}</span>
+                    </div>
+                  </Tag>
+                  <Tag className="w-full" color="red">
+                    <div className="flex justify-between">
+                      <span>Booked</span>
+                      <span>{stats.booked}</span>
+                    </div>
+                  </Tag>
+                  <div className="text-gray-500 text-sm mt-2">
+                    • Click on time slot to book
+                    <br />
+                    • Click on booking to edit/delete
+                  </div>
+                </Space>
+              </Card>
             </div>
-            <FullCalendar
-              plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
-              initialView={calendarView}
-              headerToolbar={{
-                left: 'prev,next today',
-                center: 'title',
-                right: ''
-              }}
-              selectable={true}
-              select={handleSelect}
-              events={events}
-              eventContent={renderEventContent}
-              eventClick={handleEventClick}
-              height="700px"
-              loading={loading}
-              nowIndicator={true}
-              businessHours={{
-                daysOfWeek: [1, 2, 3, 4, 5], // Monday - Friday
-                startTime: '09:00',
-                endTime: '17:00',
-              }}
-              slotMinTime="08:00:00"
-              slotMaxTime="20:00:00"
-              weekends={true}
-              allDaySlot={false}
-            />
+            
+            {/* Calendar */}
+            <Card className="shadow-md">
+              <div className="flex justify-between items-center mb-4">
+                <Title level={4} style={{ margin: 0 }}>
+                  Examiner Availability Calendar
+                </Title>
+              </div>
+              
+              <Spin spinning={fetchingEvents} tip="Loading events...">
+                <div className="calendar-container" style={{ height: '700px' }}>
+                  <FullCalendar
+                    plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
+                    initialView={calendarView}
+                    headerToolbar={{
+                      left: 'prev,next today',
+                      center: 'title',
+                      right: ''
+                    }}
+                    selectable={true}
+                    select={handleSelect}
+                    events={events}
+                    eventContent={renderEventContent}
+                    eventClick={handleEventClick}
+                    height="100%"
+                    nowIndicator={true}
+                    businessHours={{
+                      daysOfWeek: [1, 2, 3, 4, 5], // Monday - Friday
+                      startTime: '09:00',
+                      endTime: '17:00',
+                    }}
+                    slotMinTime="08:00:00"
+                    slotMaxTime="20:00:00"
+                    weekends={true}
+                    allDaySlot={false}
+                    dayMaxEvents={4}
+                    eventTimeFormat={{
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: false
+                    }}
+                  />
+                </div>
+              </Spin>
+            </Card>
           </div>
         </Content>
       </Layout>
 
       {/* Booking/Editing Modal */}
       <Modal
-        title={isEditMode ? "Edit Booking" : "Book a Slot"}
+        title={
+          <div className="flex items-center">
+            {isEditMode ? <EditOutlined className="mr-2" /> : <ClockCircleOutlined className="mr-2" />}
+            {isEditMode ? "Edit Booking" : "Book a Slot"}
+          </div>
+        }
         open={modalVisible}
         onCancel={() => {
           setModalVisible(false);
           resetForm();
         }}
         footer={null}
+        destroyOnClose={true}
       >
         {isEditMode && selectedEventId && (
-          <div className="mb-4 p-2 bg-blue-50 rounded text-blue-800 text-sm">
-            Editing booking ID: {selectedEventId}
+          <div className="mb-4 p-3 bg-blue-50 rounded flex items-center text-blue-800 text-sm">
+            <InfoCircleOutlined className="mr-2" />
+            Editing booking ID: {selectedEventId.substring(0, 10)}...
           </div>
         )}
         
         <Form form={form} onFinish={handleSubmit} layout="vertical">
-          <Form.Item name="examinerId" label="Examiner ID" rules={[{ required: true }]}>
-            <Input placeholder="Enter examiner ID" />
+          <Form.Item name="examinerId" label="Examiner ID" rules={[{ required: true, message: 'Please enter examiner ID' }]}>
+            <Input prefix={<UserOutlined />} placeholder="Enter examiner ID" />
           </Form.Item>
           <Form.Item name="date" label="Date">
-            <Input disabled={!isEditMode} />
+            <Input disabled />
           </Form.Item>
-          <Form.Item name="time" label="Time" rules={[{ required: true }]}>
-            <TimePicker format="HH:mm" minuteStep={15} />
+          <Form.Item name="time" label="Time" rules={[{ required: true, message: 'Please select a time' }]}>
+            <TimePicker 
+              format="HH:mm" 
+              minuteStep={15} 
+              placeholder="Select time"
+              className="w-full"
+              allowClear={false}
+            />
           </Form.Item>
-          <div className="flex justify-between">
-            <Button type="primary" htmlType="submit" loading={loading}>
-              {isEditMode ? "Update Booking" : "Book Slot"}
+          <div className="flex justify-between mt-4">
+            <Button type="primary" htmlType="submit" loading={loading} icon={isEditMode ? <EditOutlined /> : <CalendarOutlined />}>
+              {isEditMode ? "Update" : "Book"}
             </Button>
             
             {isEditMode && (
@@ -393,8 +486,8 @@ const Calendar = () => {
                 okText="Yes"
                 cancelText="No"
               >
-                <Button danger loading={loading}>
-                  Delete Booking
+                <Button danger loading={loading} icon={<DeleteOutlined />}>
+                  Delete
                 </Button>
               </Popconfirm>
             )}
@@ -404,5 +497,48 @@ const Calendar = () => {
     </Layout>
   );
 };
+
+// Stats component
+const Statistic = ({ title, total, booked, available, colors }) => {
+  return (
+    <div>
+      <div className="text-base font-medium mb-2">{title}</div>
+      <div className="space-y-2">
+        <div className="flex justify-between">
+          <Text>Total Slots:</Text>
+          <Text strong>{total}</Text>
+        </div>
+        <div className="flex justify-between">
+          <Text>Booked:</Text>
+          <Text type="danger">{booked}</Text>
+        </div>
+        <div className="flex justify-between">
+          <Text>Available:</Text>
+          <Text type="success">{available}</Text>
+        </div>
+      </div>
+      
+      {total > 0 && (
+        <div className="mt-3 h-2 bg-gray-200 rounded-full overflow-hidden">
+          <div 
+            className="h-full bg-red-500"
+            style={{ 
+              width: `${(booked/total) * 100}%`,
+              backgroundColor: colors.booked.bg
+            }}
+          />
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Icon components
+const InfoCircleOutlined = (props) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" viewBox="0 0 16 16" {...props}>
+    <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+    <path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533L8.93 6.588zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
+  </svg>
+);
 
 export default Calendar;
