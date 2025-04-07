@@ -110,11 +110,7 @@ function LoginExaminer() {
                 </label>
               </div>
 
-              <div className="text-sm">
-                <a href="#" className="font-medium text-blue-600 hover:text-blue-500 transition-colors">
-                  Forgot password?
-                </a>
-              </div>
+              
             </div>
 
             <button
