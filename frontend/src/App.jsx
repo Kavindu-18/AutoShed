@@ -5,6 +5,7 @@ import LoginPage from "./pages/Loginpage";
 import AdminLoginPage from "./pages/adminlogin";
 import Dashboard from "./pages/DashboardPage";
 import Calendar from "./components/Calendar";
+import Notices from "./pages/NoticePage";
 import Examiner from "./pages/ExaminerDashboard";
 import AddExaminer from "./components/Examiner/addexaminer";
 import ViewExaminers from "./components/Examiner/viewexaminers";
@@ -31,6 +32,7 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path ="/calendar" element={<Calendar />} />
+        <Route path ="/notify" element={<Notices />} />
         <Route path ="/Examiner" element={<Examiner />} />
         <Route path ="/addexaminer" element={<AddExaminer />} />
         <Route path ="/viewexaminers" element={<ViewExaminers />} />
