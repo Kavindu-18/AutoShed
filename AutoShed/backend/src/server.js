@@ -9,9 +9,12 @@ import http from "http";
 import userRoutes from "./routes/userRoutes.js";
 import examinerRoutes from "./routes/examinerRoutes.js";
 <<<<<<< HEAD
+<<<<<<< HEAD
 import presentationRoutes from "./routes/presentationRoutes.js";
 import noticeRoutes from "./routes/noticeRoutes.js";
 =======
+=======
+>>>>>>> parent of 0b1f3947 (Merge pull request #9 from Kavindu-18/Kavinga_NoticeManagement)
 import studentRoutes from "./routes/studentRoutes.js";
 import bookingRoutes from "./routes/bookingRoutes.js";
 >>>>>>> parent of 0b1f3947 (Merge pull request #9 from Kavindu-18/Kavinga_NoticeManagement)
@@ -38,9 +41,12 @@ connectDB();
 app.use("/api/users", userRoutes);
 app.use("/api/examiners", examinerRoutes);
 <<<<<<< HEAD
+<<<<<<< HEAD
 app.use("/api/presentations", presentationRoutes);
 app.use("/api/notices", noticeRoutes);
 =======
+=======
+>>>>>>> parent of 0b1f3947 (Merge pull request #9 from Kavindu-18/Kavinga_NoticeManagement)
 // app.use("/api/presentations", presentationRoutes);
 app.use("/api/students", studentRoutes);
 app.use("/api/bookings", bookingRoutes);

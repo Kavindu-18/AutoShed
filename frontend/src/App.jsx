@@ -5,8 +5,11 @@ import RegisterPage from "./pages/RegisterPage";
 import Dashboard from "./pages/DashboardPage";
 import Calendar from "./components/Calendar";
 <<<<<<< HEAD
+<<<<<<< HEAD
 import Notices from "./pages/NoticePage";
 =======
+=======
+>>>>>>> parent of 0b1f3947 (Merge pull request #9 from Kavindu-18/Kavinga_NoticeManagement)
 import Examiner from "./pages/ExaminerDashboard";
 import AddExaminer from "./components/Examiner/addexaminer";
 import ViewExaminers from "./components/Examiner/viewexaminers";
@@ -33,8 +36,11 @@ function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path ="/calendar" element={<Calendar />} />
 <<<<<<< HEAD
+<<<<<<< HEAD
         <Route path ="/notify" element={<Notices />} />
 =======
+=======
+>>>>>>> parent of 0b1f3947 (Merge pull request #9 from Kavindu-18/Kavinga_NoticeManagement)
         <Route path ="/Examiner" element={<Examiner />} />
         <Route path ="/addexaminer" element={<AddExaminer />} />
         <Route path ="/viewexaminers" element={<ViewExaminers />} />
