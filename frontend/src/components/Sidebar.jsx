@@ -15,8 +15,16 @@ function Sidebar() {
         <Menu.Item key="calendar" icon={<CalendarOutlined />}>
           <Link to="/calendar">Examiner Calendar</Link>
         </Menu.Item>
+<<<<<<< HEAD
         <Menu.Item key="calendar" icon={<CalendarOutlined />}>
           <Link to="/notify">Notify Builder</Link>
+=======
+        <Menu.Item key="examiner" icon={<SolutionOutlined />}> 
+          <Link to="/examiner">Examiner Management</Link>
+        </Menu.Item>
+        <Menu.Item key="student" icon={<SolutionOutlined />}> 
+          <Link to="/add-student">Student Management</Link>
+>>>>>>> parent of 0b1f3947 (Merge pull request #9 from Kavindu-18/Kavinga_NoticeManagement)
         </Menu.Item>
       </Menu>
     </Sider>

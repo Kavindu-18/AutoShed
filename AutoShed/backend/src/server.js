@@ -8,8 +8,13 @@ import { createServer } from "http";
 import http from "http";
 import userRoutes from "./routes/userRoutes.js";
 import examinerRoutes from "./routes/examinerRoutes.js";
+<<<<<<< HEAD
 import presentationRoutes from "./routes/presentationRoutes.js";
 import noticeRoutes from "./routes/noticeRoutes.js";
+=======
+import studentRoutes from "./routes/studentRoutes.js";
+import bookingRoutes from "./routes/bookingRoutes.js";
+>>>>>>> parent of 0b1f3947 (Merge pull request #9 from Kavindu-18/Kavinga_NoticeManagement)
 
 dotenv.config();
 const app = express();
@@ -32,8 +37,14 @@ connectDB();
 // Routes
 app.use("/api/users", userRoutes);
 app.use("/api/examiners", examinerRoutes);
+<<<<<<< HEAD
 app.use("/api/presentations", presentationRoutes);
 app.use("/api/notices", noticeRoutes);
+=======
+// app.use("/api/presentations", presentationRoutes);
+app.use("/api/students", studentRoutes);
+app.use("/api/bookings", bookingRoutes);
+>>>>>>> parent of 0b1f3947 (Merge pull request #9 from Kavindu-18/Kavinga_NoticeManagement)
 
 const PORT = process.env.PORT || 5001;
 httpServer.listen(PORT, () => console.log(`Server running on port ${PORT}`));
