@@ -11,7 +11,7 @@ import ViewExaminers from "./components/Examiner/viewexaminers";
 import ExaminerProfile from "./components/Examiner/ExaminerProfile";
 import UpdateExaminer from "./components/Examiner/updateexaminer";
 import GenerateReport from "./components/Examiner/Report";
-import HomePageExaminer from "./pages/HomePage Examiner";
+import HomePageExaminer from "./pages/HomePageExaminer";
 import StudentForm from "./components/StudentForm";
 import StudentList from "./components/StudentList";
 
