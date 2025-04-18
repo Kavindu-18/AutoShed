@@ -26,7 +26,7 @@ function App() {
     <div className="min-h-screen bg-gray-100">
       <Routes>
         <Route path="/" element={<HomePage />} />
-        <Route path="/examinerprofile" element={<HomePageExaminer/>} />
+        <Route path="/profile/:id" element={<HomePageExaminer />} />
         <Route path="/admin-login" element={<AdminLoginPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/dashboard" element={<Dashboard />} />

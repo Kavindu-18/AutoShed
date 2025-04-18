@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UserCircle, Lock, X, Briefcase } from 'lucide-react';
 import axios from 'axios';
-import { toast, Toaster } from 'react-hot-toast';  // Import toast and Toaster
+import { toast, Toaster } from 'react-hot-toast';
 
 function LoginExaminer() {
   const [email, setEmail] = useState('');
@@ -15,22 +15,36 @@ function LoginExaminer() {
     setLoading(true);
 
     try {
-      const response = await axios.post('http://localhost:5001/api/examiners/login', { email, password });
+      const response = await axios.post('http://localhost:5001/api/examiners/login', {
+        email,
+        password,
+      });
 
       if (response.data.token) {
         localStorage.setItem('userToken', response.data.token);
-        navigate('/examinerprofile');
+        localStorage.setItem('userEmail', email); // ✅ Save examiner email
+        navigate('/profile/:id'); // ✅ Redirect to homepage after login
       }
     } catch (error) {
-      console.error(error); // log error for debugging
+      console.error("Error during login:", error);
+
+      // Log the complete error to understand its structure
+      console.log("Full error object:", error);
+
+      // Check for server response errors
       if (error.response) {
-        // Server responded with a status other than 200
-        toast.error(error.response.data.message || 'Invalid credentials. Please try again.');
-      } else if (error.request) {
-        // No response was received
+        console.log("Error response data:", error.response.data);
+        const errorMessage = error.response.message || 'Invalid credentials. Please try again.';
+        toast.error(errorMessage);  // Display error toast with message
+      } 
+      // If there was no response from the server (network issue)
+      else if (error.request) {
+        console.log("Error request:", error.request);
         toast.error('Network error. Please try again later.');
-      } else {
-        // Something else went wrong
+      } 
+      // If there is an error not related to response or request
+      else {
+        console.log("Unexpected error:", error);
         toast.error('An unexpected error occurred. Please try again.');
       }
     } finally {
@@ -44,7 +58,7 @@ function LoginExaminer() {
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 to-blue-800">
         <div className="w-full h-full flex flex-col items-center justify-center text-white p-12">
           <Briefcase className="w-32 h-32 mb-8" />
-          <h2 className="text-4xl font-bold mb-4">AutoShed Presentation Sheduling System</h2>
+          <h2 className="text-4xl font-bold mb-4">AutoShed Presentation Scheduling System</h2>
           <p className="text-xl text-center opacity-90">
             Securely access your dashboard and manage your business operations efficiently.
           </p>
@@ -129,7 +143,7 @@ function LoginExaminer() {
       </div>
 
       {/* Toast Notifications */}
-      <Toaster position="bottom-right" /> {/* Toasts will appear at the bottom-right */}
+      <Toaster position="bottom-right" />
     </div>
   );
 }

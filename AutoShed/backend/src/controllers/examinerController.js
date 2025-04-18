@@ -15,7 +15,7 @@ export async function addExaminer(req, res) {
 
     
     const count = await Examiner.countDocuments();
-    data.id = `EX${count + -2}`;
+    data.id = `EX${count + 1}`;
 
     const newExaminer = new Examiner(data);
     await newExaminer.save();
@@ -48,6 +48,21 @@ export async function getExaminerById(req, res) {
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
+}
+
+export async function getExaminerByEmail(req, res) {
+  try {
+    const { email } = req.params;
+    const examiner = await Examiner.findOne({ email: email }); // Find by the 'email' field
+
+    if (!examiner) {
+      return res.status(404).json({ message: 'Examiner not found' });
+    }
+
+    res.json(examiner);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+    }
 }
 
 
