@@ -21,6 +21,9 @@ function Sidebar() {
         <Menu.Item key="student" icon={<SolutionOutlined />}> 
           <Link to="/add-student">Student Management</Link>
         </Menu.Item>
+        <Menu.Item key="notify" icon={<SolutionOutlined />}> 
+          <Link to="/Notify">Notify Management</Link>
+        </Menu.Item>
       </Menu>
     </Sider>
   );
