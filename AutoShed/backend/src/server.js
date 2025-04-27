@@ -9,6 +9,7 @@ import UserRouter from "./routes/userRoutes.js";
 import examinerRoutes from "./routes/examinerRoutes.js";
 import studentRoutes from "./routes/studentRoutes.js";
 import bookingRoutes from "./routes/bookingRoutes.js";
+import notificationRoutes from "./routes/NotifyRoutes.js"; // Notification routes
 
 dotenv.config();
 const app = express();
@@ -44,6 +45,7 @@ app.use("/api/examiners", examinerRoutes);
 // app.use("/api/presentations", presentationRoutes);
 app.use("/api/students", studentRoutes);
 app.use("/api/bookings", bookingRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
