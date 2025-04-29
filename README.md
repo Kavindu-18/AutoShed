@@ -1,4 +1,4 @@
-# Moonlight (AutoShed : Smart Presentation Scheduling System )
+# AutoShed  ( Smart Presentation Scheduling System )
 
 This repository contains the source code for a smart Presentation sheduling Management System web application developed using the MERN (MongoDB, Express.js, React, Node.js) stack.
 
