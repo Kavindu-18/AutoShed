@@ -1,5 +1,7 @@
 # AutoShed  ( Smart Presentation Scheduling System )
 
+<p><img  src="https://skillicons.dev/icons?i=mysql,express,react,nodejs,mui,vscode,github"  width=350></a></p>
+
 This repository contains the source code for a smart Presentation sheduling Management System web application developed using the MERN (MongoDB, Express.js, React, Node.js) stack.
 
 <br>
