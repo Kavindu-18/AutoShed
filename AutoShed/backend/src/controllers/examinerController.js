@@ -7,7 +7,6 @@ export async function addExaminer(req, res) {
   try {
     const data = req.body;
 
-
     
     const randomPassword = randomBytes(4).toString('hex'); 
 
@@ -15,18 +14,13 @@ export async function addExaminer(req, res) {
     data.password = randomPassword;
 
     
-
-    // Count existing examiners to generate a unique ID
     const count = await Examiner.countDocuments();
     data.id = `EX${count + 1}`;
-
 
     const newExaminer = new Examiner(data);
     await newExaminer.save();
 
-
     res.status(201).json({ message: "Examiner added successfully", examiner: newExaminer, password: randomPassword });
-
   } catch (error) {
     res.status(500).json({ message: "Examiner adding failed", error: error.message });
   }
@@ -54,6 +48,21 @@ export async function getExaminerById(req, res) {
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
+}
+
+export async function getExaminerByEmail(req, res) {
+  try {
+    const { email } = req.params;
+    const examiner = await Examiner.findOne({ email: email }); // Find by the 'email' field
+
+    if (!examiner) {
+      return res.status(404).json({ message: 'Examiner not found' });
+    }
+
+    res.json(examiner);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+    }
 }
 
 
@@ -95,7 +104,6 @@ export async function UpdateExaminer(req, res) {
   }
 }
 
-
 export async function LoginExaminer(req, res) {
   const Data = req.body;
 
@@ -121,7 +129,3 @@ export async function LoginExaminer(req, res) {
       }
   })
 }
-
-
-  
-
