@@ -193,6 +193,7 @@ export async function sendNotificationEmails(req, res) {
     }
   } catch (error) {
     console.error("Email sending error:", error);
+    console.error(error.stack);
     res.status(500).json({ message: "Failed to send emails", error: error.message });
   }
 }
@@ -233,27 +234,33 @@ async function sendEmailsForNotification(notificationId) {
 async function getEmailRecipients(targetAudience) {
   try {
     let recipients = [];
+    // Normalize targetAudience to array
+    const audiences = Array.isArray(targetAudience) ? targetAudience : [targetAudience];
     
-    if (targetAudience === 'common') {
+    if (audiences.includes('common')) {
       // Get all student and examiner emails
       const students = await Student.find({}, 'email');
       const examiners = await Examiner.find({}, 'email');
       recipients = [
+        ...recipients,
         ...students.map(s => s.email),
         ...examiners.map(e => e.email)
       ];
-    } else if (targetAudience === 'students') {
+    }
+    if (audiences.includes('students')) {
       // Get only student emails
       const students = await Student.find({}, 'email');
-      recipients = students.map(s => s.email);
-    } else if (targetAudience === 'examiners') {
+      recipients = [...recipients, ...students.map(s => s.email)];
+    }
+    if (audiences.includes('examiners')) {
       // Get only examiner emails
       const examiners = await Examiner.find({}, 'email');
-      recipients = examiners.map(e => e.email);
+      recipients = [...recipients, ...examiners.map(e => e.email)];
     }
     
-    // Filter out any empty emails
-    return recipients.filter(email => email);
+    // Remove duplicates and filter out any empty emails
+    recipients = [...new Set(recipients)].filter(email => email);
+    return recipients;
   } catch (error) {
     console.error("Error getting email recipients:", error);
     return [];

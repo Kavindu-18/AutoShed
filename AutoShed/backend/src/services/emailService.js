@@ -21,9 +21,16 @@ const sendBulkEmails = async (recipients, subject, htmlContent) => {
     };
     
     const result = await transporter.sendMail(mailOptions);
+    console.log('Email sent successfully:', result);
     return { success: true, messageId: result.messageId };
   } catch (error) {
     console.error('Error sending emails:', error);
+    if (error.response) {
+      console.error('SMTP response:', error.response);
+    }
+    if (error.responseCode) {
+      console.error('SMTP response code:', error.responseCode);
+    }
     return { success: false, error: error.message };
   }
 };
