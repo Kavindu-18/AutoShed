@@ -9,6 +9,8 @@ import axios from "axios";
 import Sidebar from "../components/Sidebar";
 import moment from "moment";
 import { CalendarOutlined, UserOutlined, ClockCircleOutlined, EditOutlined, DeleteOutlined, ReloadOutlined } from '@ant-design/icons';
+import { useVoiceListener } from "../components/VoiceListener";
+import VoiceBookingButton from "../components/VoiceBookingButton";
 
 const { Header, Content } = Layout;
 const { Title, Text } = Typography;
@@ -33,6 +35,26 @@ const Calendar = () => {
     available: { bg: "#52c41a", border: "#237804", text: "white" },
     primary: "#1890ff"
   };
+
+  const { startListening, stopListening, listening } = useVoiceListener((parsedData) => {
+    console.log("Parsed:", parsedData);
+    if (parsedData?.examinerId && parsedData?.hour != null && parsedData.spokenDate) {
+      let date = moment(parsedData.spokenDate, "MMMM D");
+      if (!date.isValid()) {
+        date = moment(); // fallback to today
+      }
+      const dateString = date.format("YYYY-MM-DD");
+
+      form.setFieldsValue({
+        examinerId: parsedData.examinerId,
+        date: dateString,
+        time: moment({ hour: parsedData.hour, minute: parsedData.minute }),
+      });
+      setModalVisible(true);
+    } else {
+      message.error("Couldn't understand voice command");
+    }
+  });
 
   // Calculate statistics from events
   const calculateStats = useCallback((eventsList) => {
@@ -305,6 +327,15 @@ const Calendar = () => {
   return (
     <Layout className="min-h-screen">
       <Sidebar />
+       {/* === VOICE COMMAND FEATURE START === */}
+       <div className="flex justify-end mb-4">
+          <VoiceBookingButton
+            onStart={startListening}
+            onStop={stopListening}
+            listening={listening}
+          />
+        </div>
+        {/* === VOICE COMMAND FEATURE END === */}
       <Layout>
         <Header className="bg-white shadow-md px-6 flex items-center justify-between">
           <div className="flex items-center">
