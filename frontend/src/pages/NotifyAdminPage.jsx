@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import {
-  AlertCircle, Bell, Calendar, CheckCircle, Edit2, Trash2, Plus, Eye, Users,
-  Tag, FileText, AlertTriangle, Clock, Archive, Send, Search, Grid, List,
-  Filter, ChevronLeft, ChevronRight, LayoutGrid, BarChart2
+import { 
+  Bell, Calendar, Edit2, Trash2, Plus, Eye, AlertTriangle,
+  Clock, Search, Grid, List, Filter, ChevronLeft, 
+  ChevronRight, LayoutGrid, BarChart2
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import Sidebar from "../components/Sidebar";
@@ -12,7 +12,7 @@ const AdminNotificationPage = () => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
-  const [activeTab, setActiveTab] = useState('all');
+  const [activeTab, setActiveTab] = useState('active');
   const [viewMode, setViewMode] = useState('list');
   const [showForm, setShowForm] = useState(false);
   const [editingNotification, setEditingNotification] = useState(null);
@@ -23,13 +23,14 @@ const AdminNotificationPage = () => {
   const [filterType, setFilterType] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
   const [audienceStats, setAudienceStats] = useState([]);
+  const [selectedNotifications, setSelectedNotifications] = useState([]);
   const [formData, setFormData] = useState({
     title: '',
     body: '',
     type: 'Academic',
     priority: 'Medium',
     status: 'Draft',
-    targetAudience: [],
+    targetAudience: 'common', // Changed to single string for radio button selection
     effectiveDate: new Date().toISOString().split('T')[0],
     expirationDate: '',
     tags: '',
@@ -61,15 +62,14 @@ const AdminNotificationPage = () => {
       examiners: 0,
       common: 0
     };
+    
     notifications.forEach(notification => {
-      if (notification.targetAudience) {
-        notification.targetAudience.forEach(audience => {
-          if (audienceCounts.hasOwnProperty(audience)) {
-            audienceCounts[audience]++;
-          }
-        });
+      const audience = notification.targetAudience;
+      if (audienceCounts.hasOwnProperty(audience)) {
+        audienceCounts[audience]++;
       }
     });
+    
     const total = Object.values(audienceCounts).reduce((sum, count) => sum + count, 0);
     const distributionData = [
       { name: 'Students', value: audienceCounts.students, percentage: ((audienceCounts.students / total) * 100).toFixed(1) || 0 },
@@ -92,6 +92,7 @@ const AdminNotificationPage = () => {
       const data = await response.json();
       setNotifications(data);
     } catch (error) {
+      console.error("Error fetching notifications:", error);
       setNotifications([]);
     } finally {
       setLoading(false);
@@ -110,6 +111,7 @@ const AdminNotificationPage = () => {
       const data = await response.json();
       setStats(data);
     } catch (error) {
+      console.error("Error fetching stats:", error);
       setStats({
         totalNotifications: 0,
         activeNotifications: 0,
@@ -127,7 +129,7 @@ const AdminNotificationPage = () => {
     else if (formData.title.length > 100) newErrors.title = 'Title must not exceed 100 characters';
     if (!formData.body.trim()) newErrors.body = 'Body is required';
     else if (formData.body.length < 10) newErrors.body = 'Body must be at least 10 characters';
-    if (formData.targetAudience.length === 0) newErrors.targetAudience = 'Select at least one target audience';
+    if (!formData.targetAudience) newErrors.targetAudience = 'Target audience is required';
     if (!formData.expirationDate) newErrors.expirationDate = 'Expiration date is required';
     else if (new Date(formData.expirationDate) <= new Date(formData.effectiveDate)) newErrors.expirationDate = 'Expiration date must be after effective date';
     setErrors(newErrors);
@@ -143,6 +145,7 @@ const AdminNotificationPage = () => {
         ? `${API_BASE_URL}/api/notifications/${editingNotification._id}`
         : `${API_BASE_URL}/api/notifications`;
       const method = editingNotification ? 'PUT' : 'POST';
+      
       const response = await fetch(url, {
         method,
         headers: {
@@ -154,11 +157,13 @@ const AdminNotificationPage = () => {
           tags: formData.tags.split(',').map(tag => tag.trim()).filter(Boolean)
         })
       });
+      
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       await response.json();
       fetchNotifications();
       resetForm();
     } catch (error) {
+      console.error("Error saving notification:", error);
       alert('Failed to save notification. Please try again.');
     }
   };
@@ -171,7 +176,7 @@ const AdminNotificationPage = () => {
       type: 'Academic',
       priority: 'Medium',
       status: 'Draft',
-      targetAudience: [],
+      targetAudience: 'common',
       effectiveDate: new Date().toISOString().split('T')[0],
       expirationDate: '',
       tags: '',
@@ -193,7 +198,34 @@ const AdminNotificationPage = () => {
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         fetchNotifications();
       } catch (error) {
+        console.error("Error deleting notification:", error);
         alert('Failed to delete notification. Please try again.');
+      }
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedNotifications.length === 0) return;
+    
+    if (window.confirm(`Are you sure you want to delete ${selectedNotifications.length} selected notifications?`)) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/notifications/bulk-delete`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({
+            ids: selectedNotifications
+          })
+        });
+        
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        fetchNotifications();
+        setSelectedNotifications([]);
+      } catch (error) {
+        console.error("Error bulk deleting notifications:", error);
+        alert('Failed to delete notifications. Please try again.');
       }
     }
   };
@@ -209,9 +241,9 @@ const AdminNotificationPage = () => {
       targetAudience: notification.targetAudience,
       effectiveDate: new Date(notification.effectiveDate).toISOString().split('T')[0],
       expirationDate: new Date(notification.expirationDate).toISOString().split('T')[0],
-      tags: notification.tags.join(', '),
-      highlightNotice: notification.highlightNotice,
-      notifyViaEmail: notification.notifyViaEmail
+      tags: Array.isArray(notification.tags) ? notification.tags.join(', ') : '',
+      highlightNotice: notification.highlightNotice || false,
+      notifyViaEmail: notification.notifyViaEmail || false
     });
     setShowForm(true);
   };
@@ -219,28 +251,59 @@ const AdminNotificationPage = () => {
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     if (type === 'checkbox') {
-      if (name === 'targetAudience') {
-        const newAudience = checked
-          ? [...formData.targetAudience, value]
-          : formData.targetAudience.filter(audience => audience !== value);
-        setFormData(prev => ({ ...prev, targetAudience: newAudience }));
-      } else {
-        setFormData(prev => ({ ...prev, [name]: checked }));
-      }
+      setFormData(prev => ({ ...prev, [name]: checked }));
+    } else if (type === 'radio' && name === 'targetAudience') {
+      setFormData(prev => ({ ...prev, targetAudience: value }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
   };
 
+  const handleSelectNotification = (id) => {
+    if (selectedNotifications.includes(id)) {
+      setSelectedNotifications(selectedNotifications.filter(notificationId => notificationId !== id));
+    } else {
+      setSelectedNotifications([...selectedNotifications, id]);
+    }
+  };
+
+  const handleSelectAll = (notifications) => {
+    if (selectedNotifications.length === notifications.length) {
+      setSelectedNotifications([]);
+    } else {
+      setSelectedNotifications(notifications.map(notification => notification._id));
+    }
+  };
+
+  // Check if a notification is expired
+  const isExpired = (notification) => {
+    const expirationDate = new Date(notification.expirationDate);
+    const now = new Date();
+    return expirationDate < now;
+  };
+
   // Filter notifications
-  const filteredNotifications = notifications.filter(notification => {
-    let matchesTab = activeTab === 'all' || notification.status.toLowerCase() === activeTab;
-    let matchesSearch = notification.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      notification.body.toLowerCase().includes(searchQuery.toLowerCase());
-    let matchesPriority = filterPriority === 'all' || notification.priority === filterPriority;
-    let matchesType = filterType === 'all' || notification.type === filterType;
-    return matchesTab && matchesSearch && matchesPriority && matchesType;
-  });
+  const getFilteredNotifications = () => {
+    // First, apply active/expired filter
+    let filtered = notifications.filter(notification => {
+      const expired = isExpired(notification);
+      if (activeTab === 'active') return !expired && notification.status === 'Published';
+      if (activeTab === 'expired') return expired || notification.status === 'Archived';
+      if (activeTab === 'draft') return notification.status === 'Draft';
+      return true; // 'all' tab
+    });
+
+    // Then, apply search and other filters
+    return filtered.filter(notification => {
+      let matchesSearch = notification.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        notification.body.toLowerCase().includes(searchQuery.toLowerCase());
+      let matchesPriority = filterPriority === 'all' || notification.priority === filterPriority;
+      let matchesType = filterType === 'all' || notification.type === filterType;
+      return matchesSearch && matchesPriority && matchesType;
+    });
+  };
+
+  const filteredNotifications = getFilteredNotifications();
 
   // Pie chart label
   const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
@@ -286,15 +349,28 @@ const AdminNotificationPage = () => {
       {filteredNotifications.map((notification) => (
         <div
           key={notification._id}
-          className="bg-white border border-gray-200 rounded-lg p-6 hover:border-blue-300 transition-all duration-200 shadow-sm hover:shadow-md"
+          className={`bg-white border rounded-lg p-6 hover:border-blue-300 transition-all duration-200 shadow-sm hover:shadow-md ${
+            isExpired(notification) ? 'border-yellow-300 bg-yellow-50' : 'border-gray-200'
+          }`}
         >
           <div className="flex justify-between items-start">
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-2">
+                <input
+                  type="checkbox"
+                  checked={selectedNotifications.includes(notification._id)}
+                  onChange={() => handleSelectNotification(notification._id)}
+                  className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
+                />
                 <h3 className="text-lg font-semibold text-gray-900">{notification.title}</h3>
                 {notification.highlightNotice && (
                   <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full">
                     Highlighted
+                  </span>
+                )}
+                {isExpired(notification) && (
+                  <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">
+                    Expired
                   </span>
                 )}
               </div>
@@ -317,11 +393,9 @@ const AdminNotificationPage = () => {
                 <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
                   {notification.type}
                 </span>
-                {notification.targetAudience && notification.targetAudience.map((audience, index) => (
-                  <span key={index} className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
-                    {audience}
-                  </span>
-                ))}
+                <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                  {notification.targetAudience}
+                </span>
               </div>
               <div className="flex items-center gap-4 mt-4 text-sm text-gray-500">
                 <div className="flex items-center gap-1">
@@ -365,10 +439,20 @@ const AdminNotificationPage = () => {
       {filteredNotifications.map((notification) => (
         <div
           key={notification._id}
-          className="bg-white border border-gray-200 rounded-lg p-6 hover:border-blue-300 transition-all duration-200 shadow-sm hover:shadow-md flex flex-col"
+          className={`bg-white border rounded-lg p-6 hover:border-blue-300 transition-all duration-200 shadow-sm hover:shadow-md flex flex-col ${
+            isExpired(notification) ? 'border-yellow-300 bg-yellow-50' : 'border-gray-200'
+          }`}
         >
           <div className="flex justify-between items-start mb-4">
-            <h3 className="text-lg font-semibold text-gray-900 line-clamp-1">{notification.title}</h3>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={selectedNotifications.includes(notification._id)}
+                onChange={() => handleSelectNotification(notification._id)}
+                className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
+              />
+              <h3 className="text-lg font-semibold text-gray-900 line-clamp-1">{notification.title}</h3>
+            </div>
             <div className="flex gap-2">
               <button
                 onClick={() => handleEdit(notification)}
@@ -384,6 +468,13 @@ const AdminNotificationPage = () => {
               </button>
             </div>
           </div>
+          {isExpired(notification) && (
+            <div className="mb-3">
+              <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">
+                Expired
+              </span>
+            </div>
+          )}
           <p className="text-gray-600 mb-4 line-clamp-2">{notification.body}</p>
           <div className="flex flex-wrap gap-2 mb-4">
             <span className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -402,6 +493,9 @@ const AdminNotificationPage = () => {
             </span>
             <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
               {notification.type}
+            </span>
+            <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+              {notification.targetAudience}
             </span>
           </div>
           <div className="mt-auto pt-4 border-t border-gray-100">
@@ -468,6 +562,7 @@ const AdminNotificationPage = () => {
                           <div
                             key={i}
                             className={`text-xs p-1 rounded truncate cursor-pointer ${
+                              isExpired(notification) ? 'bg-red-100 text-red-800' :
                               notification.priority === 'High' ? 'bg-red-100 text-red-800' :
                               notification.priority === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
                               'bg-green-100 text-green-800'
@@ -494,6 +589,12 @@ const AdminNotificationPage = () => {
       </div>
     );
   };
+
+  // Get counts for each category
+  const activeNotificationsCount = notifications.filter(n => !isExpired(n) && n.status === 'Published').length;
+  const expiredNotificationsCount = notifications.filter(n => isExpired(n) || n.status === 'Archived').length;
+  const draftNotificationsCount = notifications.filter(n => n.status === 'Draft').length;
+  const allNotificationsCount = notifications.length;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex">
@@ -526,34 +627,34 @@ const AdminNotificationPage = () => {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100 hover:shadow-xl transition-shadow">
               <div className="flex items-center gap-4">
-                <div className="p-3 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-inner">
-                  <FileText className="w-6 h-6 text-white" />
+                <div className="p-3 bg-gradient-to-r from-green-500 to-green-600 rounded-lg shadow-inner">
+                  <Bell className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Total Notifications</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats?.totalNotifications || 0}</p>
+                  <p className="text-sm text-gray-600">Active Notifications</p>
+                  <p className="text-2xl font-bold text-gray-900">{activeNotificationsCount}</p>
                 </div>
               </div>
             </div>
             <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100 hover:shadow-xl transition-shadow">
               <div className="flex items-center gap-4">
-                <div className="p-3 bg-gradient-to-r from-green-500 to-green-600 rounded-lg shadow-inner">
-                  <CheckCircle className="w-6 h-6 text-white" />
+                <div className="p-3 bg-gradient-to-r from-red-500 to-red-600 rounded-lg shadow-inner">
+                  <AlertTriangle className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Active</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats?.activeNotifications || 0}</p>
+                  <p className="text-sm text-gray-600">Expired Notifications</p>
+                  <p className="text-2xl font-bold text-gray-900">{expiredNotificationsCount}</p>
                 </div>
               </div>
             </div>
             <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100 hover:shadow-xl transition-shadow">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-lg shadow-inner">
-                  <AlertTriangle className="w-6 h-6 text-white" />
+                  <Edit2 className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Expiring Soon</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats?.expiringThisWeek || 0}</p>
+                  <p className="text-sm text-gray-600">Draft Notifications</p>
+                  <p className="text-2xl font-bold text-gray-900">{draftNotificationsCount}</p>
                 </div>
               </div>
             </div>
@@ -703,22 +804,74 @@ const AdminNotificationPage = () => {
             )}
           </div>
 
+          {/* Bulk Delete Button */}
+          {selectedNotifications.length > 0 && (
+            <div className="mb-4">
+              <button 
+                onClick={handleBulkDelete}
+                className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded flex items-center"
+              >
+                <Trash2 className="w-5 h-5 mr-2" />
+                Delete Selected ({selectedNotifications.length})
+              </button>
+            </div>
+          )}
+
           {/* Tabs and Content Area */}
           <div className="bg-white rounded-xl shadow-lg border border-gray-100 mb-8">
             <div className="flex border-b border-gray-200">
-              {['all', 'draft', 'published', 'archived'].map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`px-6 py-4 text-sm font-medium capitalize transition-colors ${
-                    activeTab === tab
-                      ? 'border-b-2 border-blue-600 text-blue-600 bg-blue-50'
-                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  {tab}
-                </button>
-              ))}
+              <button
+                onClick={() => setActiveTab('active')}
+                className={`px-6 py-4 text-sm font-medium capitalize transition-colors flex items-center ${
+                  activeTab === 'active'
+                    ? 'border-b-2 border-green-600 text-green-600 bg-green-50'
+                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <span>Active</span>
+                <span className="ml-2 bg-green-100 text-green-800 text-xs font-semibold px-2.5 py-0.5 rounded">
+                  {activeNotificationsCount}
+                </span>
+              </button>
+              <button
+                onClick={() => setActiveTab('expired')}
+                className={`px-6 py-4 text-sm font-medium capitalize transition-colors flex items-center ${
+                  activeTab === 'expired'
+                    ? 'border-b-2 border-red-600 text-red-600 bg-red-50'
+                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <span>Expired</span>
+                <span className="ml-2 bg-red-100 text-red-800 text-xs font-semibold px-2.5 py-0.5 rounded">
+                  {expiredNotificationsCount}
+                </span>
+              </button>
+              <button
+                onClick={() => setActiveTab('draft')}
+                className={`px-6 py-4 text-sm font-medium capitalize transition-colors flex items-center ${
+                  activeTab === 'draft'
+                    ? 'border-b-2 border-yellow-600 text-yellow-600 bg-yellow-50'
+                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <span>Draft</span>
+                <span className="ml-2 bg-yellow-100 text-yellow-800 text-xs font-semibold px-2.5 py-0.5 rounded">
+                  {draftNotificationsCount}
+                </span>
+              </button>
+              <button
+                onClick={() => setActiveTab('all')}
+                className={`px-6 py-4 text-sm font-medium capitalize transition-colors flex items-center ${
+                  activeTab === 'all'
+                    ? 'border-b-2 border-blue-600 text-blue-600 bg-blue-50'
+                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <span>All</span>
+                <span className="ml-2 bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded">
+                  {allNotificationsCount}
+                </span>
+              </button>
             </div>
             <div className="p-6">
               {loading ? (
@@ -842,19 +995,42 @@ const AdminNotificationPage = () => {
                         Target Audience
                       </label>
                       <div className="space-y-2">
-                        {['students', 'examiners', 'common'].map((audience) => (
-                          <label key={audience} className="flex items-center">
+                        {/* Radio buttons for target audience */}
+                        <div className="flex space-x-6">
+                          <label className="flex items-center">
                             <input
-                              type="checkbox"
+                              type="radio"
                               name="targetAudience"
-                              value={audience}
-                              checked={formData.targetAudience.includes(audience)}
+                              value="students"
+                              checked={formData.targetAudience === "students"}
                               onChange={handleInputChange}
-                              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                              className="h-4 w-4 text-blue-600 focus:ring-blue-500"
                             />
-                            <span className="ml-2 text-sm capitalize">{audience}</span>
+                            <span className="ml-2 text-sm">Students</span>
                           </label>
-                        ))}
+                          <label className="flex items-center">
+                            <input
+                              type="radio"
+                              name="targetAudience"
+                              value="examiners"
+                              checked={formData.targetAudience === "examiners"}
+                              onChange={handleInputChange}
+                              className="h-4 w-4 text-blue-600 focus:ring-blue-500"
+                            />
+                            <span className="ml-2 text-sm">Examiners</span>
+                          </label>
+                          <label className="flex items-center">
+                            <input
+                              type="radio"
+                              name="targetAudience"
+                              value="common"
+                              checked={formData.targetAudience === "common"}
+                              onChange={handleInputChange}
+                              className="h-4 w-4 text-blue-600 focus:ring-blue-500"
+                            />
+                            <span className="ml-2 text-sm">Common</span>
+                          </label>
+                        </div>
                       </div>
                       {errors.targetAudience && (
                         <p className="mt-1 text-sm text-red-600">{errors.targetAudience}</p>
@@ -941,19 +1117,9 @@ const AdminNotificationPage = () => {
                     </button>
                     <button
                       type="submit"
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                     >
-                      {editingNotification ? (
-                        <>
-                          <Edit2 className="w-4 h-4" />
-                          Update Notification
-                        </>
-                      ) : (
-                        <>
-                          <Send className="w-4 h-4" />
-                          Create Notification
-                        </>
-                      )}
+                      {editingNotification ? 'Update Notification' : 'Create Notification'}
                     </button>
                   </div>
                 </form>
