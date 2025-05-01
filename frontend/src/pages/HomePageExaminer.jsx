@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { FaUserCircle, FaBell } from 'react-icons/fa';
+import { FaUserCircle, FaBell, FaCheckCircle, FaCalendarAlt, FaTimes } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 
 const HomePageExaminer = () => {
@@ -8,6 +8,9 @@ const HomePageExaminer = () => {
   const [showProfile, setShowProfile] = useState(false);
   const [editedExaminer, setEditedExaminer] = useState({});
   const [passwordError, setPasswordError] = useState('');
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const navigate = useNavigate();
   const email = localStorage.getItem('userEmail');
 
@@ -32,6 +35,66 @@ const HomePageExaminer = () => {
         });
     }
   }, [email]);
+  
+  // Fetch notifications for examiners
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        // Fetch notifications targeted to examiners or common audience
+        const response = await fetch('http://localhost:5001/api/notifications');
+        const allNotifications = await response.json();
+        
+        // Filter notifications for examiners or common audience that are published and not expired
+        const currentDate = new Date();
+        const relevantNotifications = allNotifications.filter(notification => 
+          (notification.targetAudience === 'examiners' || notification.targetAudience === 'common') &&
+          notification.status === 'Published' &&
+          new Date(notification.expirationDate) > currentDate &&
+          new Date(notification.effectiveDate) <= currentDate
+        );
+        
+        setNotifications(relevantNotifications);
+        
+        // Calculate unread notifications
+        const unread = relevantNotifications.filter(notification => !notification.viewedBy?.includes(email)).length;
+        setUnreadCount(unread);
+      } catch (error) {
+        console.error('Error fetching notifications:', error);
+      }
+    };
+    
+    if (email) {
+      fetchNotifications();
+      
+      // Set up polling to check for new notifications every minute
+      const intervalId = setInterval(fetchNotifications, 60000);
+      return () => clearInterval(intervalId);
+    }
+  }, [email]);
+  
+  const handleNotificationClick = async (notificationId) => {
+    try {
+      // Mark notification as viewed
+      await fetch(`http://localhost:5001/api/notifications/${notificationId}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      // Update unread count
+      setUnreadCount(prev => Math.max(0, prev - 1));
+      
+      // Update notifications list to mark this one as read
+      setNotifications(prev => 
+        prev.map(notification => 
+          notification._id === notificationId 
+            ? { ...notification, viewedBy: [...(notification.viewedBy || []), email] } 
+            : notification
+        )
+      );
+    } catch (error) {
+      console.error('Error marking notification as viewed:', error);
+    }
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('userEmail');
@@ -102,6 +165,12 @@ const HomePageExaminer = () => {
     return <div className="flex justify-center items-center h-screen text-red-500">Examiner not found</div>;
   }
 
+  // Format date for display
+  const formatDate = (dateString) => {
+    const options = { year: 'numeric', month: 'short', day: 'numeric' };
+    return new Date(dateString).toLocaleDateString(undefined, options);
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-gray-50 relative overflow-hidden">
       {/* Header */}
@@ -118,7 +187,73 @@ const HomePageExaminer = () => {
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <span className="text-gray-600 font-medium hidden sm:block">{examiner.email}</span>
-              <FaBell className="text-xl text-gray-500 hover:text-indigo-600 cursor-pointer" />
+              <div className="relative">
+                <div className="cursor-pointer" onClick={() => setShowNotifications(!showNotifications)}>
+                  <FaBell className="text-xl text-gray-500 hover:text-indigo-600" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                      {unreadCount}
+                    </span>
+                  )}
+                </div>
+                
+                {/* Notifications Dropdown */}
+                {showNotifications && (
+                  <div className="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg z-10 max-h-96 overflow-y-auto">
+                    <div className="flex justify-between items-center p-3 border-b">
+                      <h3 className="font-medium">Notifications</h3>
+                      <FaTimes 
+                        className="text-gray-500 hover:text-gray-700 cursor-pointer" 
+                        onClick={() => setShowNotifications(false)} 
+                      />
+                    </div>
+                    
+                    {notifications.length === 0 ? (
+                      <div className="p-4 text-center text-gray-500">No notifications</div>
+                    ) : (
+                      <div>
+                        {notifications.map(notification => {
+                          const isUnread = !notification.viewedBy?.includes(email);
+                          return (
+                            <div 
+                              key={notification._id} 
+                              className={`p-3 border-b hover:bg-gray-50 cursor-pointer ${isUnread ? 'bg-blue-50' : ''}`}
+                              onClick={() => handleNotificationClick(notification._id)}
+                            >
+                              <div className="flex items-start gap-3">
+                                <div className={`p-2 rounded-full ${getPriorityColor(notification.priority)}`}>
+                                  {notification.type === 'Academic' ? (
+                                    <FaCalendarAlt className="text-white" />
+                                  ) : (
+                                    <FaCheckCircle className="text-white" />
+                                  )}
+                                </div>
+                                <div className="flex-1">
+                                  <div className="flex justify-between items-start">
+                                    <h4 className="font-medium text-gray-800">{notification.title}</h4>
+                                    {isUnread && <div className="w-2 h-2 rounded-full bg-blue-600"></div>}
+                                  </div>
+                                  <p className="text-sm text-gray-600 line-clamp-2 mt-1">{notification.body}</p>
+                                  <div className="flex justify-between items-center mt-2">
+                                    <span className="text-xs text-gray-500">
+                                      {formatDate(notification.effectiveDate)}
+                                    </span>
+                                    {notification.highlightNotice && (
+                                      <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs rounded">
+                                        Important
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
             <FaUserCircle
               className="text-3xl text-indigo-700 hover:text-indigo-900 cursor-pointer"
@@ -153,6 +288,25 @@ const HomePageExaminer = () => {
             Welcome , {examiner.fname} {examiner.lname}
           </h1>
 
+          {/* Notification Banner - For highest priority notifications */}
+          {notifications.some(n => n.priority === 'High' && n.highlightNotice) && (
+            <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-6 rounded shadow-sm">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <FaBell className="h-5 w-5 text-yellow-600" />
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm text-yellow-700 font-medium">
+                    You have important notifications
+                  </p>
+                  <p className="text-xs text-yellow-600 mt-1">
+                    Check your notification panel for important updates
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Info Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="bg-purple-100 p-4 rounded shadow"><p className="font-semibold">Department:</p><p>{examiner.department}</p></div>
@@ -163,6 +317,46 @@ const HomePageExaminer = () => {
             <div className="bg-gray-100 p-4 rounded shadow"><p className="font-semibold">Salary:</p><p>${examiner.salary?.toFixed(2)}</p></div>
             <div className="md:col-span-2 bg-pink-100 p-4 rounded shadow"><p className="font-semibold">Courses:</p><p>{examiner.courses?.join(', ')}</p></div>
             <div className="md:col-span-2 bg-indigo-100 p-4 rounded shadow"><p className="font-semibold">Modules:</p><p>{examiner.modules?.join(', ')}</p></div>
+          </div>
+
+          {/* Recent Notifications Section */}
+          <div className="mt-8">
+            <h2 className="text-2xl font-semibold text-indigo-700 mb-4">Recent Notifications</h2>
+            {notifications.length === 0 ? (
+              <div className="bg-gray-50 p-6 rounded text-center text-gray-500">
+                No recent notifications
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {notifications.slice(0, 3).map(notification => (
+                  <div key={notification._id} className="bg-white border rounded-lg p-4 hover:border-indigo-300 transition-colors shadow-sm">
+                    <div className="flex justify-between">
+                      <h3 className="font-medium text-gray-900">{notification.title}</h3>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getPriorityBadgeClass(notification.priority)}`}>
+                        {notification.priority}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-gray-600">{notification.body}</p>
+                    <div className="mt-2 flex justify-between items-center">
+                      <span className="text-sm text-gray-500">{formatDate(notification.effectiveDate)}</span>
+                      {notification.highlightNotice && (
+                        <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs rounded">Important</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {notifications.length > 3 && (
+                  <div className="text-center">
+                    <button 
+                      onClick={() => setShowNotifications(true)}
+                      className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+                    >
+                      View all notifications
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Schedule Table */}
@@ -297,6 +491,34 @@ const HomePageExaminer = () => {
       </footer>
     </div>
   );
+};
+
+// Helper function to get priority badge color
+const getPriorityBadgeClass = (priority) => {
+  switch (priority) {
+    case 'High':
+      return 'bg-red-100 text-red-800';
+    case 'Medium':
+      return 'bg-yellow-100 text-yellow-800';
+    case 'Low':
+      return 'bg-green-100 text-green-800';
+    default:
+      return 'bg-gray-100 text-gray-800';
+  }
+};
+
+// Helper function to get priority icon background color
+const getPriorityColor = (priority) => {
+  switch (priority) {
+    case 'High':
+      return 'bg-red-500';
+    case 'Medium':
+      return 'bg-yellow-500';
+    case 'Low':
+      return 'bg-green-500';
+    default:
+      return 'bg-gray-500';
+  }
 };
 
 export default HomePageExaminer;

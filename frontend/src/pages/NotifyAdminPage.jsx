@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Bell, Calendar, Edit2, Trash2, Plus, Eye, AlertTriangle,
   Clock, Search, Grid, List, Filter, ChevronLeft, 
-  ChevronRight, LayoutGrid, BarChart2
+  ChevronRight, LayoutGrid, BarChart2, Mail, CheckCircle
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import Sidebar from "../components/Sidebar";
@@ -11,6 +11,7 @@ const AdminNotificationPage = () => {
   // State management
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [processingEmail, setProcessingEmail] = useState(false);
   const [stats, setStats] = useState(null);
   const [activeTab, setActiveTab] = useState('active');
   const [viewMode, setViewMode] = useState('list');
@@ -24,13 +25,15 @@ const AdminNotificationPage = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [audienceStats, setAudienceStats] = useState([]);
   const [selectedNotifications, setSelectedNotifications] = useState([]);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     body: '',
     type: 'Academic',
     priority: 'Medium',
     status: 'Draft',
-    targetAudience: 'common', // Changed to single string for radio button selection
+    targetAudience: 'common', // Default to common
     effectiveDate: new Date().toISOString().split('T')[0],
     expirationDate: '',
     tags: '',
@@ -55,6 +58,16 @@ const AdminNotificationPage = () => {
       calculateAudienceDistribution();
     }
   }, [notifications]);
+
+  // Auto-hide success message after 5 seconds
+  useEffect(() => {
+    if (showSuccessMessage) {
+      const timer = setTimeout(() => {
+        setShowSuccessMessage(false);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [showSuccessMessage]);
 
   const calculateAudienceDistribution = () => {
     const audienceCounts = {
@@ -136,15 +149,47 @@ const AdminNotificationPage = () => {
     return Object.keys(newErrors).length === 0;
   };
 
+  // Handle success message based on notification type and email setting
+  const getSuccessMessage = (formData) => {
+    if (formData.status !== 'Published') {
+      return "Notification saved as draft successfully.";
+    }
+
+    switch (formData.targetAudience) {
+      case 'common':
+        return formData.notifyViaEmail 
+          ? "Notification published successfully on Home page and email sent to all users."
+          : "Notification published successfully on Home page.";
+      case 'examiners':
+        return formData.notifyViaEmail 
+          ? "Notification published for Examiner and email sent successfully."
+          : "Notification published for Examiner successfully.";
+      case 'students':
+        return formData.notifyViaEmail 
+          ? "Notification published for Student and email sent successfully."
+          : "Notification published for Student successfully.";
+      default:
+        return "Notification published successfully.";
+    }
+  };
+
   // Form submit
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
+    
     try {
+      setLoading(true);
+      
       const url = editingNotification
         ? `${API_BASE_URL}/api/notifications/${editingNotification._id}`
         : `${API_BASE_URL}/api/notifications`;
       const method = editingNotification ? 'PUT' : 'POST';
+      
+      const notificationData = {
+        ...formData,
+        tags: formData.tags.split(',').map(tag => tag.trim()).filter(Boolean)
+      };
       
       const response = await fetch(url, {
         method,
@@ -152,19 +197,48 @@ const AdminNotificationPage = () => {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
-        body: JSON.stringify({
-          ...formData,
-          tags: formData.tags.split(',').map(tag => tag.trim()).filter(Boolean)
-        })
+        body: JSON.stringify(notificationData)
       });
       
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      await response.json();
-      fetchNotifications();
+      
+      const savedNotification = await response.json();
+      
+      // If email notifications are enabled and status is Published, send emails
+      if (formData.notifyViaEmail && formData.status === 'Published') {
+        setProcessingEmail(true);
+        try {
+          // Trigger email sending from backend
+          const emailResponse = await fetch(`${API_BASE_URL}/api/notifications/${savedNotification._id}/send-emails`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            }
+          });
+          
+          if (!emailResponse.ok) {
+            console.error('Email sending failed, but notification was saved');
+          }
+        } catch (emailError) {
+          console.error('Error triggering email send:', emailError);
+        } finally {
+          setProcessingEmail(false);
+        }
+      }
+      
+      // Set success message based on notification type and email setting
+      setSuccessMessage(getSuccessMessage(formData));
+      setShowSuccessMessage(true);
+      
+      await fetchNotifications();
+      fetchStats();
       resetForm();
     } catch (error) {
       console.error("Error saving notification:", error);
-      alert('Failed to save notification. Please try again.');
+      setErrors({ form: 'Failed to save notification. Please try again.' });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -197,6 +271,8 @@ const AdminNotificationPage = () => {
         });
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         fetchNotifications();
+        setSuccessMessage("Notification deleted successfully.");
+        setShowSuccessMessage(true);
       } catch (error) {
         console.error("Error deleting notification:", error);
         alert('Failed to delete notification. Please try again.');
@@ -223,6 +299,8 @@ const AdminNotificationPage = () => {
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         fetchNotifications();
         setSelectedNotifications([]);
+        setSuccessMessage(`${selectedNotifications.length} notifications deleted successfully.`);
+        setShowSuccessMessage(true);
       } catch (error) {
         console.error("Error bulk deleting notifications:", error);
         alert('Failed to delete notifications. Please try again.');
@@ -343,6 +421,32 @@ const AdminNotificationPage = () => {
     setSelectedMonth(newDate);
   };
 
+  // Get appropriate badge for audience type 
+  const getAudienceBadge = (audience) => {
+    switch (audience) {
+      case 'students':
+        return (
+          <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium flex items-center">
+            <span className="mr-1">Students</span>
+          </span>
+        );
+      case 'examiners':
+        return (
+          <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium flex items-center">
+            <span className="mr-1">Examiners</span>
+          </span>
+        );
+      case 'common':
+        return (
+          <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium flex items-center">
+            <span className="mr-1">Common (All)</span>
+          </span>
+        );
+      default:
+        return null;
+    }
+  };
+
   // Render views
   const renderListView = () => (
     <div className="space-y-4">
@@ -373,6 +477,12 @@ const AdminNotificationPage = () => {
                     Expired
                   </span>
                 )}
+                {notification.notifyViaEmail && (
+                  <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full flex items-center">
+                    <Mail className="w-3 h-3 mr-1" />
+                    Email Enabled
+                  </span>
+                )}
               </div>
               <p className="text-gray-600 mb-4">{notification.body}</p>
               <div className="flex flex-wrap gap-3">
@@ -393,9 +503,7 @@ const AdminNotificationPage = () => {
                 <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
                   {notification.type}
                 </span>
-                <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
-                  {notification.targetAudience}
-                </span>
+                {getAudienceBadge(notification.targetAudience)}
               </div>
               <div className="flex items-center gap-4 mt-4 text-sm text-gray-500">
                 <div className="flex items-center gap-1">
@@ -468,13 +576,20 @@ const AdminNotificationPage = () => {
               </button>
             </div>
           </div>
-          {isExpired(notification) && (
-            <div className="mb-3">
+          <div className="flex flex-wrap gap-2 mb-3">
+            {isExpired(notification) && (
               <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">
                 Expired
               </span>
-            </div>
-          )}
+            )}
+            {notification.notifyViaEmail && (
+              <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full flex items-center">
+                <Mail className="w-3 h-3 mr-1" />
+                Email
+              </span>
+            )}
+            {getAudienceBadge(notification.targetAudience)}
+          </div>
           <p className="text-gray-600 mb-4 line-clamp-2">{notification.body}</p>
           <div className="flex flex-wrap gap-2 mb-4">
             <span className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -493,9 +608,6 @@ const AdminNotificationPage = () => {
             </span>
             <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
               {notification.type}
-            </span>
-            <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
-              {notification.targetAudience}
             </span>
           </div>
           <div className="mt-auto pt-4 border-t border-gray-100">
@@ -596,6 +708,11 @@ const AdminNotificationPage = () => {
   const draftNotificationsCount = notifications.filter(n => n.status === 'Draft').length;
   const allNotificationsCount = notifications.length;
 
+  // Audience counts for stats
+  const commonCount = notifications.filter(n => n.targetAudience === 'common').length;
+  const examinerCount = notifications.filter(n => n.targetAudience === 'examiners').length;
+  const studentCount = notifications.filter(n => n.targetAudience === 'students').length;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex">
       {/* Sidebar */}
@@ -623,6 +740,50 @@ const AdminNotificationPage = () => {
         </div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
+          {/* Success Message */}
+          {showSuccessMessage && (
+            <div className="mb-6 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative">
+              <div className="flex items-center">
+                <CheckCircle className="w-5 h-5 mr-2" />
+                <span>{successMessage}</span>
+              </div>
+              <button
+                className="absolute top-0 bottom-0 right-0 px-4 py-3"
+                onClick={() => setShowSuccessMessage(false)}
+              >
+                <svg className="h-4 w-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                  <path
+                    fillRule="evenodd"
+                    d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </button>
+            </div>
+          )}
+
+          {/* Error Message */}
+          {errors.form && (
+            <div className="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
+              <div className="flex items-center">
+                <AlertTriangle className="w-5 h-5 mr-2" />
+                <span>{errors.form}</span>
+              </div>
+              <button
+                className="absolute top-0 bottom-0 right-0 px-4 py-3"
+                onClick={() => setErrors(prev => ({ ...prev, form: null }))}
+              >
+                <svg className="h-4 w-4 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                  <path
+                    fillRule="evenodd"
+                    d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </button>
+            </div>
+          )}
+
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100 hover:shadow-xl transition-shadow">
@@ -673,7 +834,7 @@ const AdminNotificationPage = () => {
             </div>
           </div>
 
-          {/* Pie Chart - Audience Distribution */}
+          {/* Audience Distribution */}
           <div className="bg-white rounded-xl shadow-lg border border-gray-100 mb-8 p-6">
             <div className="flex items-center gap-2 mb-6">
               <BarChart2 className="w-6 h-6 text-blue-600" />
@@ -704,21 +865,42 @@ const AdminNotificationPage = () => {
               </div>
               <div className="w-full md:w-1/2">
                 <div className="grid grid-cols-1 gap-4">
-                  {audienceStats.map((stat, index) => (
-                    <div key={stat.name} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="w-4 h-4 rounded-full"
-                          style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                        ></div>
-                        <span className="font-medium text-gray-700">{stat.name}</span>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold text-gray-900">{stat.value} notices</p>
-                        <p className="text-sm text-gray-600">{stat.percentage}%</p>
-                      </div>
+                  <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="w-4 h-4 rounded-full" style={{ backgroundColor: COLORS[0] }}></div>
+                      <span className="font-medium text-gray-700">Students</span>
                     </div>
-                  ))}
+                    <div className="text-right">
+                      <p className="font-bold text-gray-900">{studentCount} notices</p>
+                      <p className="text-sm text-gray-600">
+                        {studentCount && allNotificationsCount ? ((studentCount / allNotificationsCount) * 100).toFixed(1) : 0}%
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="w-4 h-4 rounded-full" style={{ backgroundColor: COLORS[1] }}></div>
+                      <span className="font-medium text-gray-700">Examiners</span>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-gray-900">{examinerCount} notices</p>
+                      <p className="text-sm text-gray-600">
+                        {examinerCount && allNotificationsCount ? ((examinerCount / allNotificationsCount) * 100).toFixed(1) : 0}%
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between p-4 bg-yellow-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="w-4 h-4 rounded-full" style={{ backgroundColor: COLORS[2] }}></div>
+                      <span className="font-medium text-gray-700">Common (All)</span>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-gray-900">{commonCount} notices</p>
+                      <p className="text-sm text-gray-600">
+                        {commonCount && allNotificationsCount ? ((commonCount / allNotificationsCount) * 100).toFixed(1) : 0}%
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -996,17 +1178,17 @@ const AdminNotificationPage = () => {
                       </label>
                       <div className="space-y-2">
                         {/* Radio buttons for target audience */}
-                        <div className="flex space-x-6">
+                        <div className="flex flex-col space-y-3">
                           <label className="flex items-center">
                             <input
                               type="radio"
                               name="targetAudience"
-                              value="students"
-                              checked={formData.targetAudience === "students"}
+                              value="common"
+                              checked={formData.targetAudience === "common"}
                               onChange={handleInputChange}
                               className="h-4 w-4 text-blue-600 focus:ring-blue-500"
                             />
-                            <span className="ml-2 text-sm">Students</span>
+                            <span className="ml-2 text-sm">Common (appears on Home page, all users)</span>
                           </label>
                           <label className="flex items-center">
                             <input
@@ -1017,18 +1199,18 @@ const AdminNotificationPage = () => {
                               onChange={handleInputChange}
                               className="h-4 w-4 text-blue-600 focus:ring-blue-500"
                             />
-                            <span className="ml-2 text-sm">Examiners</span>
+                            <span className="ml-2 text-sm">Examiners only (appears on Examiner page)</span>
                           </label>
                           <label className="flex items-center">
                             <input
                               type="radio"
                               name="targetAudience"
-                              value="common"
-                              checked={formData.targetAudience === "common"}
+                              value="students"
+                              checked={formData.targetAudience === "students"}
                               onChange={handleInputChange}
                               className="h-4 w-4 text-blue-600 focus:ring-blue-500"
                             />
-                            <span className="ml-2 text-sm">Common</span>
+                            <span className="ml-2 text-sm">Students only (appears on Student page)</span>
                           </label>
                         </div>
                       </div>
@@ -1106,20 +1288,69 @@ const AdminNotificationPage = () => {
                       <span className="ml-2 text-sm">Send email notification</span>
                     </label>
                   </div>
+
+                  {/* Email notification info panel */}
+                  {formData.notifyViaEmail && (
+                    <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
+                      <div className="flex items-start">
+                        <Mail className="w-5 h-5 text-blue-600 mr-3 mt-0.5" />
+                        <div>
+                          <p className="text-sm text-blue-700 font-medium">Email will be sent to:</p>
+                          <p className="text-sm text-blue-600 mt-1">
+                            {formData.targetAudience === 'common' ? 'All users (students and examiners)' : 
+                             formData.targetAudience === 'students' ? 'All students' : 
+                             formData.targetAudience === 'examiners' ? 'All examiners' : ''}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Display message about where notification will appear */}
+                  <div className="bg-gray-50 border-l-4 border-gray-300 p-4 rounded">
+                    <div className="flex">
+                      <Bell className="w-5 h-5 text-gray-600 mr-3" />
+                      <div>
+                        <p className="text-sm text-gray-700 font-medium">This notification will appear on:</p>
+                        <p className="text-sm text-gray-600 mt-1">
+                          {formData.status === 'Published' ? (
+                            formData.targetAudience === 'common' ? 'The main Home page (visible to all users)' : 
+                            formData.targetAudience === 'students' ? 'The Student portal page (visible to students only)' : 
+                            formData.targetAudience === 'examiners' ? 'The Examiner portal page (visible to examiners only)' : ''
+                          ) : 'This notification will not be visible until published'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Form Actions */}
                   <div className="flex justify-end gap-4 pt-4 border-t border-gray-200">
                     <button
                       type="button"
                       onClick={resetForm}
                       className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                      disabled={loading || processingEmail}
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      disabled={loading || processingEmail}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center"
                     >
-                      {editingNotification ? 'Update Notification' : 'Create Notification'}
+                      {(loading || processingEmail) ? (
+                        <>
+                          <span className="mr-2">
+                            <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                          </span>
+                          {processingEmail ? 'Sending Emails...' : 'Saving...'}
+                        </>
+                      ) : (
+                        <>{editingNotification ? 'Update Notification' : 'Create Notification'}</>
+                      )}
                     </button>
                   </div>
                 </form>
