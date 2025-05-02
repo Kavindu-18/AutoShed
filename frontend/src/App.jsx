@@ -14,6 +14,7 @@ import GenerateReport from "./components/Examiner/Report";
 import HomePageExaminer from "./pages/HomePageExaminer";
 import StudentForm from "./components/StudentForm";
 import StudentList from "./components/StudentList";
+import StudentHomePage from './pages/StudentHomePage';
 import Notify from "./pages/NotifyAdminPage";
 
 
@@ -39,6 +40,7 @@ function App() {
         <Route path="/examiners/edit/:id" element={<UpdateExaminer />} />
         <Route path="/generate-report" element={<GenerateReport />} />
         <Route path="/notify" element={<Notify />} />
+        <Route path="/StudentView" element={<StudentHomePage />} />
 
 
         

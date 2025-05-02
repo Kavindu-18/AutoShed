@@ -8,7 +8,8 @@ import {
   getNotificationsByAudience,
   getActiveCommonNotifications,
   bulkDeleteNotifications,
-  getNotificationStats
+  getNotificationStats,
+  sendNotificationEmails // Add this import
 } from "../controllers/NotifyController.js";
 
 const router = express.Router();
@@ -39,5 +40,8 @@ router.delete("/:id", deleteNotification);
 
 // Bulk delete notifications
 router.post("/bulk-delete", bulkDeleteNotifications);
+
+// NEW ROUTE: Send notification emails manually
+router.post("/:id/send-emails", sendNotificationEmails);
 
 export default router;
