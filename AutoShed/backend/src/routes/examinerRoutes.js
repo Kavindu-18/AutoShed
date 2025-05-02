@@ -1,13 +1,15 @@
 import express from "express";
-import{addExaminer, getExaminers, DeleteExaminer, UpdateExaminer, getExaminerById,LoginExaminer} from "../controllers/examinerController.js";
+import{addExaminer, getExaminers, DeleteExaminer, UpdateExaminer, getExaminerById,LoginExaminer,getExaminerByEmail} from "../controllers/examinerController.js";
 
-const router = express.Router();
+const examinersrouter = express.Router();
 
-router.post("/", addExaminer);
-router.get("/", getExaminers);
-router.get("/:id", getExaminerById);
-router.delete("/:id", DeleteExaminer);
-router.put("/:id", UpdateExaminer);
-router.post("/login", LoginExaminer);
+examinersrouter.post("/", addExaminer);
+examinersrouter.get("/", getExaminers);
+examinersrouter.get("/:id", getExaminerById);
+examinersrouter.delete("/:id", DeleteExaminer);
+examinersrouter.put("/:id", UpdateExaminer);
+examinersrouter.post("/login", LoginExaminer);
+examinersrouter.get("/email/:email", getExaminerByEmail);
 
-export default router;
+export default examinersrouter;
+
