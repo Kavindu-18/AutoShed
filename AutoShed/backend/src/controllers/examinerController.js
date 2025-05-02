@@ -1,6 +1,7 @@
 import Examiner from "../models/Examiner.js";
 import { randomBytes } from 'crypto';
 import jwt from  "jsonwebtoken";
+import { sendmail } from "../helpers/sendMail.js";
 
 
 export async function addExaminer(req, res) {
@@ -19,8 +20,11 @@ export async function addExaminer(req, res) {
 
     const newExaminer = new Examiner(data);
     await newExaminer.save();
+    sendmail(data.email, "Welcome to AutoShed","hi", `Your password is ${randomPassword}`);
 
     res.status(201).json({ message: "Examiner added successfully", examiner: newExaminer, password: randomPassword });
+
+
   } catch (error) {
     res.status(500).json({ message: "Examiner adding failed", error: error.message });
   }
