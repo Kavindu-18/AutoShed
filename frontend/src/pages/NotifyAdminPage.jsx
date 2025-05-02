@@ -84,11 +84,26 @@ const AdminNotificationPage = () => {
     });
     
     const total = Object.values(audienceCounts).reduce((sum, count) => sum + count, 0);
+    
+    // Store numbers instead of strings for percentages
     const distributionData = [
-      { name: 'Students', value: audienceCounts.students, percentage: ((audienceCounts.students / total) * 100).toFixed(1) || 0 },
-      { name: 'Examiners', value: audienceCounts.examiners, percentage: ((audienceCounts.examiners / total) * 100).toFixed(1) || 0 },
-      { name: 'Common', value: audienceCounts.common, percentage: ((audienceCounts.common / total) * 100).toFixed(1) || 0 }
+      { 
+        name: 'Students', 
+        value: audienceCounts.students, 
+        percentage: total > 0 ? Math.round((audienceCounts.students / total) * 100) : 0
+      },
+      { 
+        name: 'Examiners', 
+        value: audienceCounts.examiners, 
+        percentage: total > 0 ? Math.round((audienceCounts.examiners / total) * 100) : 0
+      },
+      { 
+        name: 'Common', 
+        value: audienceCounts.common, 
+        percentage: total > 0 ? Math.round((audienceCounts.common / total) * 100) : 0
+      }
     ];
+    
     setAudienceStats(distributionData);
   };
 
@@ -383,14 +398,18 @@ const AdminNotificationPage = () => {
 
   const filteredNotifications = getFilteredNotifications();
 
-  // Pie chart label
-  const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+  // Pie chart label - Updated with index parameter
+  const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index }) => {
     const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
     const x = cx + radius * Math.cos(-midAngle * Math.PI / 180);
     const y = cy + radius * Math.sin(-midAngle * Math.PI / 180);
+    
+    // Use the pre-calculated percentage or fallback to the percent provided by recharts
+    const displayPercent = audienceStats[index]?.percentage || Math.round(percent * 100);
+    
     return (
       <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central">
-        {`${(percent * 100).toFixed(0)}%`}
+        {`${displayPercent}%`}
       </text>
     );
   };
@@ -840,70 +859,61 @@ const AdminNotificationPage = () => {
               <BarChart2 className="w-6 h-6 text-blue-600" />
               <h2 className="text-xl font-semibold text-gray-900">Notice Distribution by Target Audience</h2>
             </div>
-            <div className="flex flex-col md:flex-row items-center justify-between gap-8">
-              <div className="w-full md:w-1/2 h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={audienceStats}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={renderCustomizedLabel}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {audienceStats.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="w-full md:w-1/2">
-                <div className="grid grid-cols-1 gap-4">
-                  <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <div className="w-4 h-4 rounded-full" style={{ backgroundColor: COLORS[0] }}></div>
-                      <span className="font-medium text-gray-700">Students</span>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold text-gray-900">{studentCount} notices</p>
-                      <p className="text-sm text-gray-600">
-                        {studentCount && allNotificationsCount ? ((studentCount / allNotificationsCount) * 100).toFixed(1) : 0}%
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <div className="w-4 h-4 rounded-full" style={{ backgroundColor: COLORS[1] }}></div>
-                      <span className="font-medium text-gray-700">Examiners</span>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold text-gray-900">{examinerCount} notices</p>
-                      <p className="text-sm text-gray-600">
-                        {examinerCount && allNotificationsCount ? ((examinerCount / allNotificationsCount) * 100).toFixed(1) : 0}%
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between p-4 bg-yellow-50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <div className="w-4 h-4 rounded-full" style={{ backgroundColor: COLORS[2] }}></div>
-                      <span className="font-medium text-gray-700">Common (All)</span>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold text-gray-900">{commonCount} notices</p>
-                      <p className="text-sm text-gray-600">
-                        {commonCount && allNotificationsCount ? ((commonCount / allNotificationsCount) * 100).toFixed(1) : 0}%
-                      </p>
-                    </div>
+            
+            {allNotificationsCount > 0 ? (
+              <div className="flex flex-col md:flex-row items-center justify-between gap-8">
+                <div className="w-full md:w-1/2 h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={audienceStats}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={renderCustomizedLabel}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {audienceStats.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value, name, props) => [`${value} notifications (${props.payload.percentage}%)`, name]} />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="w-full md:w-1/2">
+                  <div className="grid grid-cols-1 gap-4">
+                    {audienceStats.map((stat, index) => (
+                      stat.value > 0 ? (
+                        <div key={index} className={`flex items-center justify-between p-4 rounded-lg ${
+                          index === 0 ? 'bg-blue-50' : index === 1 ? 'bg-green-50' : 'bg-yellow-50'
+                        }`}>
+                          <div className="flex items-center gap-3">
+                            <div className="w-4 h-4 rounded-full" style={{ backgroundColor: COLORS[index] }}></div>
+                            <span className="font-medium text-gray-700">{stat.name}</span>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-gray-900">{stat.value} notices</p>
+                            <p className="text-sm text-gray-600">{stat.percentage}%</p>
+                          </div>
+                        </div>
+                      ) : null
+                    ))}
                   </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="text-center py-8">
+                <div className="mb-4">
+                  <Bell className="w-12 h-12 text-gray-300 mx-auto" />
+                </div>
+                <p className="text-gray-500">No notifications have been created yet.</p>
+                <p className="text-gray-500 mt-2">When you create notifications, the audience distribution will appear here.</p>
+              </div>
+            )}
           </div>
 
           {/* Search and Filter Bar */}
