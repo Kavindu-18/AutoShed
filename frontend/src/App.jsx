@@ -16,6 +16,8 @@ import StudentForm from "./components/StudentForm";
 import StudentList from "./components/StudentList";
 import StudentHomePage from './pages/StudentHomePage';
 import Notify from "./pages/NotifyAdminPage";
+import Users from "./pages/users";
+import AddUser from "./components/AddUser";
 
 
 
@@ -33,6 +35,8 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path ="/calendar" element={<Calendar />} />
+        <Route path="/users" element={<Users />} />
+        <Route path="/add-user" element={<AddUser />} />
         <Route path ="/Examiner" element={<Examiner />} />
         <Route path ="/addexaminer" element={<AddExaminer />} />
         <Route path ="/viewexaminers" element={<ViewExaminers />} />
@@ -56,3 +60,5 @@ function App() {
 }
 
 export default App
+
+

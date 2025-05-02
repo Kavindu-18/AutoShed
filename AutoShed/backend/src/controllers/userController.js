@@ -20,6 +20,16 @@ export function registerUser(req,res){
 
 }
 
+export async function getAllUsers(req, res) {
+    try {
+      const user = await User.find();
+      res.json(user);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+      console.log(error);
+    }
+  }
+
 export function Loginuser(req,res){
     const Data = req.body;
 

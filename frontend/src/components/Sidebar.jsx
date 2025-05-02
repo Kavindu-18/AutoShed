@@ -12,6 +12,9 @@ function Sidebar() {
         <Menu.Item key="dashboard" icon={<DashboardOutlined />}>
           <Link to="/dashboard">Dashboard</Link>
         </Menu.Item>
+        <Menu.Item key="Users" icon={<SolutionOutlined />}> 
+          <Link to="/users">Users</Link>
+        </Menu.Item>
         <Menu.Item key="calendar" icon={<CalendarOutlined />}>
           <Link to="/calendar">Examiner Calendar</Link>
         </Menu.Item>
