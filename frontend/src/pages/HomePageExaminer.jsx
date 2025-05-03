@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { FaUserCircle, FaBell, FaCheckCircle, FaCalendarAlt, FaTimes, FaChalkboardTeacher, FaBookOpen, FaClipboardList, FaPhone, FaEnvelope, FaClock } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
+import { toast } from "react-hot-toast";
 
 const HomePageExaminer = () => {
   const [examiner, setExaminer] = useState(null);
@@ -103,6 +104,8 @@ const HomePageExaminer = () => {
     navigate('/');
   };
 
+  
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setEditedExaminer(prev => ({
@@ -110,54 +113,85 @@ const HomePageExaminer = () => {
       [name]: value
     }));
   };
-
+  
   const handleSaveChanges = () => {
     const updateData = {
       fname: editedExaminer.fname,
       lname: editedExaminer.lname,
       phone: editedExaminer.phone,
     };
-
+  
     fetch(`http://localhost:5001/api/examiners/${examiner.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updateData)
     })
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to update profile');
+        return res.json();
+      })
       .then(() => {
         setExaminer(prev => ({ ...prev, ...updateData }));
+        toast.success("Profile details updated successfully!");
         setShowProfile(false);
       })
-      .catch(err => console.error('Error updating profile:', err));
+      .catch(err => {
+        console.error('Error updating profile:', err);
+        toast.error("Failed to update profile details.");
+      });
   };
-
+  
   const handleSavePassword = () => {
+    // Validate current password
     if (editedExaminer.currentPassword !== examiner.password) {
       setPasswordError('Current password is incorrect');
+      toast.error('Current password is incorrect');
       return;
     }
-
+  
+    // Validate new password match
     if (editedExaminer.newPassword !== editedExaminer.confirmPassword) {
       setPasswordError('New passwords do not match');
+      toast.error('New passwords do not match');
       return;
     }
-
+  
+    setPasswordError(''); // Clear any previous error
+  
     const updateData = {
       password: editedExaminer.newPassword,
     };
-
+  
     fetch(`http://localhost:5001/api/examiners/${examiner.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updateData)
+      body: JSON.stringify(updateData),
     })
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to update password');
+        return res.json();
+      })
       .then(() => {
         setExaminer(prev => ({ ...prev, password: updateData.password }));
-        setShowProfile(false);
+        toast.success("Password updated successfully!");
+  
+        setEditedExaminer(prev => ({
+          ...prev,
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: '',
+          showPasswordFields: false,
+        }));
+  
+        setShowProfile(false); // Optional: close profile modal
       })
-      .catch(err => console.error('Error updating password:', err));
+      .catch(err => {
+        console.error('Error updating password:', err);
+        toast.error("Failed to update password.");
+      });
+  
   };
+  
 
   if (loading) {
     return (
