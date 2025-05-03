@@ -119,9 +119,12 @@ function LoginExaminer() {
                 </div>
 
                 <div className="text-sm">
-                  <a href="#" className="font-medium text-blue-600 hover:text-blue-500 transition-colors">
+                  <span
+                    onClick={() => navigate('/fogetpassword')}
+                    className="cursor-pointer font-medium text-blue-600 hover:text-blue-500 transition-colors"
+                  >
                     Forgot password?
-                  </a>
+                  </span>
                 </div>
               </div>
 

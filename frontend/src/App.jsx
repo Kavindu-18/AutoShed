@@ -19,6 +19,7 @@ import Notify from "./pages/NotifyAdminPage";
 import Users from "./pages/users";
 import AddUser from "./components/AddUser";
 import { Toaster } from "react-hot-toast";
+import Fogetpassword from './pages/fogetpassword';
 
 function App() {
   const [count, setCount] = useState(0);
@@ -48,6 +49,7 @@ function App() {
           <Route path="/StudentView" element={<StudentHomePage />} />
           <Route path="/add-student" element={<StudentForm />} />
           <Route path="/students" element={<StudentList />} />
+          <Route path="/fogetpassword" element={<Fogetpassword />} />
         </Routes>
       </div>
     </>
