@@ -118,27 +118,91 @@ export async function DeleteExaminer(req, res) {
   }
 }
 
+// export async function UpdateExaminer(req, res) {
+//   try {
+//     const { id } = req.params;
+//     const updateData = req.body;
+
+    
+//     const examiner = await Examiner.findOneAndUpdate(
+//       { id }, 
+//       updateData,
+//       { new: true, runValidators: true } 
+//     );
+
+//     if (!examiner) {
+//       return res.status(404).json({ message: "Examiner not found" });
+//     }
+
+//     res.json({ message: "Examiner updated successfully"});
+//   } catch (error) {
+//     res.status(500).json({ error: error.message });
+//   }
+// }
 export async function UpdateExaminer(req, res) {
   try {
     const { id } = req.params;
     const updateData = req.body;
 
-    
-    const examiner = await Examiner.findOneAndUpdate(
-      { id }, 
-      updateData,
-      { new: true, runValidators: true } 
-    );
-
-    if (!examiner) {
+    const currentExaminer = await Examiner.findOne({ id });
+    if (!currentExaminer) {
       return res.status(404).json({ message: "Examiner not found" });
     }
 
-    res.json({ message: "Examiner updated successfully"});
+    const isPasswordChanged = updateData.password && updateData.password !== currentExaminer.password;
+
+    const examiner = await Examiner.findOneAndUpdate(
+      { id },
+      updateData,
+      { new: true, runValidators: true }
+    );
+
+    if (!examiner) {
+      return res.status(404).json({ message: "Examiner not found after update" });
+    }
+
+    // Compose email
+    let subject = "";
+    let htmlContent = "";
+
+    if (isPasswordChanged) {
+      subject = "Your password changed";
+      htmlContent = `
+        <div style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
+          <div style="max-width: 600px; margin: auto; background-color: #ffffff; border-radius: 10px; padding: 30px;">
+            <h2 style="color: #e67e22;">Password Changed</h2>
+            <p>Hi <strong>${examiner.fname}</strong>,</p>
+            <p>Your AutoShed account password has been updated successfully.</p>
+            <p>If you didn't request this change, please contact support immediately.</p>
+            <p style="color: #555;">– The AutoShed Team</p>
+          </div>
+        </div>
+      `;
+    } else {
+      subject = "Your account details updated";
+      htmlContent = `
+        <div style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
+          <div style="max-width: 600px; margin: auto; background-color: #ffffff; border-radius: 10px; padding: 30px;">
+            <h2 style="color: #2980b9;">Account Updated</h2>
+            <p>Hi <strong>${examiner.fname}</strong>,</p>
+            <p>Your account details in AutoShed have been successfully updated.</p>
+            <p>If you didn't request this update, please contact support.</p>
+            <p style="color: #555;">– The AutoShed Team</p>
+          </div>
+        </div>
+      `;
+    }
+
+    await sendmail(examiner.email, subject, subject, htmlContent);
+
+    res.json({ message: "Examiner updated successfully" });
+
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 }
+
+
 
 export async function LoginExaminer(req, res) {
   const Data = req.body;
