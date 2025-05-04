@@ -14,6 +14,7 @@ import {
   Legend,
   Filler,
 } from "chart.js";
+import { format, parseISO } from "date-fns";
 
 ChartJS.register(
   CategoryScale,
@@ -41,34 +42,49 @@ export default function Examiner() {
         setLoading(true);
         const response = await fetch("http://localhost:5001/api/examiners");
 
-        // Validate response
         if (!response.ok) {
           throw new Error("Failed to fetch data");
         }
 
-        // Parse the JSON data
         const data = await response.json();
-        console.log("API Response:", data); // Debugging line
 
-        // Counting total, active, and inactive examiners
         const total = data.length;
-        
-        // Use string comparison
-        const active = data.filter((examiner) => examiner.availability === "true").length; // Active examiners
-        const inactive = data.filter((examiner) => examiner.availability === "false").length; // Inactive examiners
+        const active = data.filter(e => e.availability === "true").length;
+        const inactive = data.filter(e => e.availability === "false").length;
 
-        // Debugging logs for checking counts
-        console.log(`Total examiners: ${total}`);
-        console.log(`Active examiners: ${active}`);
-        console.log(`Inactive examiners: ${inactive}`);
-
-        // Update state with counts
         setTotalExaminers(total);
         setActiveExaminers(active);
         setInactiveExaminers(inactive);
 
-        // Update chart data
-        updateChartData(total, active, inactive);
+        const grouped = groupByTimeFrame(data, timeFrame);
+
+        setChartData({
+          labels: Object.keys(grouped),
+          datasets: [
+            {
+              label: "Total Examiners",
+              data: Object.values(grouped).map(g => g.length),
+              borderColor: "#9333ea",
+              tension: 0.4,
+              fill: false,
+            },
+            {
+              label: "Active Examiners",
+              data: Object.values(grouped).map(g => g.filter(e => e.availability === "true").length),
+              borderColor: "#6d28d9",
+              tension: 0.4,
+              fill: false,
+            },
+            {
+              label: "Inactive Examiners",
+              data: Object.values(grouped).map(g => g.filter(e => e.availability === "false").length),
+              borderColor: "#e53e3e",
+              tension: 0.4,
+              fill: false,
+            },
+          ],
+        });
+
       } catch (error) {
         console.error("Error fetching examiners:", error);
         setError(error.message);
@@ -77,39 +93,39 @@ export default function Examiner() {
       }
     };
 
-    const updateChartData = (total, active, inactive) => {
-      const labels = getLabelsByTimeFrame(timeFrame);
-      const totalData = Array(labels.length).fill(0).map(() => Math.floor(Math.random() * total));
-      const activeData = Array(labels.length).fill(1).map(() => Math.floor(Math.random() * active)); // Fixed data representation
-      const inactiveData = Array(labels.length).fill(1).map(() => Math.floor(Math.random() * inactive)); // Fixed data representation
+    const groupByTimeFrame = (data, frame) => {
+      const grouped = {};
 
-      setChartData({
-        labels,
-        datasets: [
-          { label: "Total Examiners", data: totalData, borderColor: "#9333ea", tension: 0.4, fill: false },
-          { label: "Active Examiners", data: activeData, borderColor: "#6d28d9", tension: 0.4, fill: false },
-          { label: "Inactive Examiners", data: inactiveData, borderColor: "#e53e3e", tension: 0.4, fill: false },
-        ],
+      data.forEach((examiner) => {
+        const date = parseISO(examiner.registeredDate || examiner.createdAt || new Date().toISOString());
+        let key = "";
+
+        switch (frame) {
+          case "daily":
+            key = format(date, "yyyy-MM-dd");
+            break;
+          case "weekly":
+            key = format(date, "yyyy-'W'II");
+            break;
+          case "monthly":
+            key = format(date, "MMMM");
+            break;
+          case "yearly":
+            key = format(date, "yyyy");
+            break;
+          default:
+            key = "Unknown";
+        }
+
+        if (!grouped[key]) grouped[key] = [];
+        grouped[key].push(examiner);
       });
-    };
 
-    const getLabelsByTimeFrame = (timeFrame) => {
-      switch (timeFrame) {
-        case 'daily':
-          return ['Feb 1', 'Feb 2', 'Feb 3', 'Feb 4', 'Feb 5', 'Feb 6', 'Feb 7', 'Feb 8', 'Feb 9', 'Feb 10', 'Feb 11', 'Feb 12', 'Feb 13', 'Feb 14', 'Feb 15', 'Feb 16', 'Feb 17', 'Feb 18', 'Feb 19', 'Feb 20', 'Feb 21', 'Feb 22', 'Feb 23', 'Feb 24', 'Feb 25', 'Feb 26', 'Feb 27', 'Feb 28', 'Feb 29']; // Considering leap year 2025
-        case 'weekly':
-          return ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
-        case 'monthly':
-          return ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-        case 'yearly':
-          return ['2023', '2024', '2025'];
-        default:
-          return [];
-      }
+      return grouped;
     };
 
     fetchExaminers();
-  }, [timeFrame]); // Adding timeFrame as a dependency to update chart data on change
+  }, [timeFrame]);
 
   const options = {
     responsive: true,
@@ -139,7 +155,7 @@ export default function Examiner() {
               <StatCard icon={<FaUserTie className="text-blue-500 text-3xl mr-4" />} title="Total Examiners" value={totalExaminers} />
               <StatCard icon={<FaUsers className="text-green-500 text-3xl mr-4" />} title="Active Examiners" value={activeExaminers} />
               <StatCard icon={<FaUsers className="text-red-500 text-3xl mr-4" />} title="Inactive Examiners" value={inactiveExaminers} />
-              <StatCard icon={<FaFileAlt className="text-red-500 text-3xl mr-4" />} title="Pending Reports" value={15} />
+              <StatCard icon={<FaFileAlt className="text-yellow-500 text-3xl mr-4" />} title="Pending Reports" value={totalExaminers} />
             </div>
 
             <div className="mb-6">

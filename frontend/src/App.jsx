@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState } from 'react';
 import { Routes, Route } from "react-router-dom";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/Loginpage";
@@ -16,43 +16,44 @@ import StudentForm from "./components/StudentForm";
 import StudentList from "./components/StudentList";
 import StudentHomePage from './pages/StudentHomePage';
 import Notify from "./pages/NotifyAdminPage";
-
-
-
+import Users from "./pages/users";
+import AddUser from "./components/AddUser";
+import { Toaster } from "react-hot-toast";
+import Fogetpassword from './pages/fogetpassword';
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [count, setCount] = useState(0);
 
   return (
     <>
-    <div className="min-h-screen bg-gray-100">
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/profile/:id" element={<HomePageExaminer />} />
-        <Route path="/admin-login" element={<AdminLoginPage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path ="/calendar" element={<Calendar />} />
-        <Route path ="/Examiner" element={<Examiner />} />
-        <Route path ="/addexaminer" element={<AddExaminer />} />
-        <Route path ="/viewexaminers" element={<ViewExaminers />} />
-        <Route path="/examiners/view/:id" element={<ExaminerProfile />} />
-        <Route path="/examiners/edit/:id" element={<UpdateExaminer />} />
-        <Route path="/generate-report" element={<GenerateReport />} />
-        <Route path="/notify" element={<Notify />} />
-        <Route path="/StudentView" element={<StudentHomePage />} />
+      {/* Global Toaster */}
+      <Toaster position="top-right" />
 
-
-        
-
-        <Route path="/add-student" element={<StudentForm />} />
-        <Route path="/students" element={<StudentList />} />
-       
-    
-      </Routes>
-    </div>
+      <div className="min-h-screen bg-gray-100">
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/profile/:id" element={<HomePageExaminer />} />
+          <Route path="/admin-login" element={<AdminLoginPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/calendar" element={<Calendar />} />
+          <Route path="/users" element={<Users />} />
+          <Route path="/add-user" element={<AddUser />} />
+          <Route path="/Examiner" element={<Examiner />} />
+          <Route path="/addexaminer" element={<AddExaminer />} />
+          <Route path="/viewexaminers" element={<ViewExaminers />} />
+          <Route path="/examiners/view/:id" element={<ExaminerProfile />} />
+          <Route path="/examiners/edit/:id" element={<UpdateExaminer />} />
+          <Route path="/generate-report" element={<GenerateReport />} />
+          <Route path="/notify" element={<Notify />} />
+          <Route path="/StudentView" element={<StudentHomePage />} />
+          <Route path="/add-student" element={<StudentForm />} />
+          <Route path="/students" element={<StudentList />} />
+          <Route path="/fogetpassword" element={<Fogetpassword />} />
+        </Routes>
+      </div>
     </>
-  )
+  );
 }
 
-export default App
+export default App;

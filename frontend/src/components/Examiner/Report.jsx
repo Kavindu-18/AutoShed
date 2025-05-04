@@ -1,19 +1,20 @@
 import { useState, useEffect } from "react";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import { FileDown, Loader2, Users } from "lucide-react";
+import { FileDown, Loader2, Users, ArrowLeft } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import Sidebar from "../Sidebar";
 
 export default function GenerateReport() {
   const [examiners, setExaminers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetch("http://localhost:5001/api/examiners")
       .then((response) => response.json())
       .then((data) => {
-        // Filter examiners by role == "examiner"
         const filteredExaminers = data.filter(examiner => examiner.role === "examiner");
         setExaminers(filteredExaminers);
         setLoading(false);
@@ -102,6 +103,17 @@ export default function GenerateReport() {
             </div>
           </div>
 
+          {/* Back Button */}
+          <div className="mb-4">
+            <button
+              onClick={() => navigate("/viewexaminers")}
+              className="flex items-center gap-2 px-4 py-2 text-sm rounded-md bg-gray-200 hover:bg-gray-300 text-gray-800"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to Examiners
+            </button>
+          </div>
+
           {/* Table to display examiners */}
           {loading ? (
             <div className="flex justify-center">
@@ -139,7 +151,11 @@ export default function GenerateReport() {
             <button
               onClick={generateReport}
               disabled={generating || loading}
-              className={`flex items-center gap-2 px-6 py-3 rounded-lg text-white font-medium transition-all duration-300 ${generating || loading ? "bg-blue-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700 active:scale-95"}`}
+              className={`flex items-center gap-2 px-6 py-3 rounded-lg text-white font-medium transition-all duration-300 ${
+                generating || loading
+                  ? "bg-blue-400 cursor-not-allowed"
+                  : "bg-blue-600 hover:bg-blue-700 active:scale-95"
+              }`}
             >
               {generating ? <Loader2 className="w-5 h-5 animate-spin" /> : <FileDown className="w-5 h-5" />}
               {generating ? "Generating PDF..." : "Download Report"}

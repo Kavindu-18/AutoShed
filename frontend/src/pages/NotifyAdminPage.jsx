@@ -40,6 +40,7 @@ const AdminNotificationPage = () => {
     highlightNotice: false,
     notifyViaEmail: false
   });
+  const [generateReport, setGenerateReport] = useState(false); // New state for report generation
 
   // Backend API base URL
   const API_BASE_URL = 'http://localhost:5001';
@@ -68,6 +69,15 @@ const AdminNotificationPage = () => {
       return () => clearTimeout(timer);
     }
   }, [showSuccessMessage]);
+
+  // Enable or disable email notification based on status
+  useEffect(() => {
+    if (formData.status === 'Published') {
+      setFormData((prev) => ({ ...prev, notifyViaEmail: true }));
+    } else {
+      setFormData((prev) => ({ ...prev, notifyViaEmail: false }));
+    }
+  }, [formData.status]);
 
   const calculateAudienceDistribution = () => {
     const audienceCounts = {
@@ -554,6 +564,13 @@ const AdminNotificationPage = () => {
               >
                 <Trash2 className="w-5 h-5" />
               </button>
+              <button
+                onClick={() => handleGenerateIndividualReport(notification)}
+                className="p-2 text-gray-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                title="Generate Report"
+              >
+                <BarChart2 className="w-5 h-5" />
+              </button>
             </div>
           </div>
         </div>
@@ -731,6 +748,26 @@ const AdminNotificationPage = () => {
   const commonCount = notifications.filter(n => n.targetAudience === 'common').length;
   const examinerCount = notifications.filter(n => n.targetAudience === 'examiners').length;
   const studentCount = notifications.filter(n => n.targetAudience === 'students').length;
+
+  const handleGenerateReport = () => {
+    const reportContent = notifications.map(notification => `Title: ${notification.title}\nBody: ${notification.body}\nPriority: ${notification.priority}\nStatus: ${notification.status}\nEffective Date: ${notification.effectiveDate}\nExpiration Date: ${notification.expirationDate}\n\n`).join('');
+
+    const blob = new Blob([reportContent], { type: 'text/plain' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'NotificationsReport.txt';
+    link.click();
+  };
+
+  const handleGenerateIndividualReport = (notification) => {
+    const reportContent = `Title: ${notification.title}\nBody: ${notification.body}\nPriority: ${notification.priority}\nStatus: ${notification.status}\nEffective Date: ${notification.effectiveDate}\nExpiration Date: ${notification.expirationDate}\n`;
+
+    const blob = new Blob([reportContent], { type: 'text/plain' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `${notification.title.replace(/\s+/g, '_')}_Report.txt`;
+    link.click();
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex">
@@ -1084,6 +1121,32 @@ const AdminNotificationPage = () => {
             </div>
           </div>
 
+          {/* Report Generation Section */}
+          <div className="bg-white rounded-xl shadow-lg border border-gray-100 mb-8 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-gray-900">Generate Notifications Report</h2>
+              <button
+                onClick={() => setGenerateReport(!generateReport)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                {generateReport ? 'Cancel Report' : 'Generate Report'}
+              </button>
+            </div>
+            {generateReport && (
+              <div className="mt-4">
+                <button
+                  onClick={handleGenerateReport}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                >
+                  Download Report
+                </button>
+              </div>
+            )}
+            <p className="text-gray-500 text-sm mt-2">
+              Generate a report of all notifications as a text file. The report will include the title, body, priority, status, effective date, and expiration date of each notification.
+            </p>
+          </div>
+
           {/* Form Modal */}
           {showForm && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -1294,6 +1357,7 @@ const AdminNotificationPage = () => {
                         checked={formData.notifyViaEmail}
                         onChange={handleInputChange}
                         className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        disabled={formData.status !== 'Published'}
                       />
                       <span className="ml-2 text-sm">Send email notification</span>
                     </label>
